@@ -32,6 +32,12 @@ import plotly.graph_objects as go
 from datalake.silver_processor import SilverProcessor
 from datalake.gold_aggregator import GoldAggregator
 
+try:
+    from warehouse.duckdb_manager import DuckDBManager
+    DUCKDB_AVAILABLE = True
+except ImportError:
+    DUCKDB_AVAILABLE = False
+
 # ============================================================
 # CONFIG PAGE
 # ============================================================
@@ -127,7 +133,7 @@ with st.sidebar:
         max_value=datetime.utcnow().date(),
     )
 
-    sources_options = ["hespress", "bbc", "gdelt"]
+    sources_options = ["hespress", "bbc", "gdelt", "akhbarona", "lakom", "barlamane", "aljazeera", "cnn", "reuters"]
     selected_sources = st.multiselect(
         "📡 Sources",
         options=sources_options,
@@ -177,6 +183,18 @@ def load_gold(date_str: str) -> pd.DataFrame:
     """Charge les données Gold (avec topics et signaux Polymarket)."""
     aggregator = GoldAggregator(gold_root="data/gold")
     return aggregator.load(date=date_str)
+
+
+@st.cache_data(ttl=300, show_spinner="Chargement mots clés...")
+def load_keywords() -> pd.DataFrame:
+    """Charge les mots clés fréquents depuis le Data Warehouse."""
+    if DUCKDB_AVAILABLE:
+        try:
+            db = DuckDBManager()
+            return db.get_top_keywords(n=20)
+        except Exception:
+            pass
+    return pd.DataFrame(columns=["mot", "frequence"])
 
 
 # ============================================================
@@ -417,6 +435,72 @@ with col3b:
         st.plotly_chart(fig_time, use_container_width=True)
     else:
         st.info("Dates de publication non disponibles dans les données actuelles.")
+
+st.markdown("---")
+
+# ============================================================
+# ROW 3b — Articles par source + Mots clés fréquents
+# ============================================================
+col3c, col3d = st.columns(2)
+
+with col3c:
+    st.markdown('<p class="section-title">📡 Nombre d\'articles par source</p>', unsafe_allow_html=True)
+    if "source" in working_df.columns:
+        src_counts = working_df["source"].value_counts().reset_index()
+        src_counts.columns = ["source", "articles"]
+        fig_src = px.bar(
+            src_counts, x="articles", y="source", orientation="h",
+            color="articles", color_continuous_scale="Teal",
+            template="plotly_dark",
+        )
+        fig_src.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=10, b=0), height=280,
+        )
+        st.plotly_chart(fig_src, use_container_width=True)
+    else:
+        st.info("Source non disponible.")
+
+with col3d:
+    st.markdown('<p class="section-title">🔑 Mots clés les plus fréquents</p>', unsafe_allow_html=True)
+    keywords_df = load_keywords()
+    if not keywords_df.empty:
+        fig_kw = px.bar(
+            keywords_df, x="frequence", y="mot", orientation="h",
+            color="frequence", color_continuous_scale="Magma",
+            template="plotly_dark",
+        )
+        fig_kw.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=10, b=0), height=280,
+        )
+        st.plotly_chart(fig_kw, use_container_width=True)
+    else:
+        # Fallback : calcul rapide depuis les titres
+        if "titre_clean" in working_df.columns:
+            stopwords = {"the", "and", "for", "avec", "dans", "pour", "les", "des", "que", "qui", "une", "pas", "sur", "est", "son", "cet", "cette", "ces", "ses", "leur", "leurs", "notre", "nos", "votre", "vos", "mon", "ma", "mes", "ton", "ta", "tes", "ce", "cet", "cette", "ces", "de", "du", "des", "un", "une", "et", "en", "à", "au", "aux", "par", "plus", "moins", "très", "trop", "peu", "tout", "tous", "toute", "toutes", "autre", "autres", "même", "memes", "meme", "memes", "tel", "telle", "tels", "telles", "tout", "toute", "tous", "toutes", "aucun", "aucune", "aucuns", "aucunes", "certains", "certaine", "certaines", "plusieurs", "quelque", "quelques", "chacun", "chacune", "plusieurs", "plusieurs", "tout", "toute", "tous", "toutes", "aucun", "aucune", "nul", "nulle", "nuls", "nulles", "tel", "telle", "tels", "telles", "tellement", "tant", "telle", "telles", "tel", "tels", "autant", "autres", "autre", "autrui", "quelqu", "quiconque", "chacun", "chacune", "personne", "rien", "aucun", "nul", "nulle", "nuls", "nulles", "tout", "toute", "tous", "toutes", "quelque", "quelques", "plusieurs", "certains", "certaine", "certaines", "divers", "diverse", "diverses", "maint", "mainte", "maints", "maintes", "tant", "telle", "telles", "tel", "tels", "tellement", "tant", "telle", "telles", "tel", "tels", "autant", "autres", "autre", "autrui", "quelqu", "quiconque", "chacun", "chacune", "personne", "rien", "the", "and", "for", "with", "you", "that", "this", "from", "they", "have", "had", "what", "said", "each", "which", "she", "does", "how", "will", "about", "out", "many", "then", "them", "these", "some", "her", "would", "make", "like", "into", "him", "has", "two", "more", "very", "after", "words", "just", "where", "most", "know", "take", "than", "only", "think", "also", "its", "over", "too", "any", "may", "say", "great", "where", "help", "through", "much", "before", "move", "right", "too", "means", "old", "any", "same", "tell", "boy", "follow", "came", "want", "show", "also", "around", "farm", "three", "small", "set", "put", "end", "why", "again", "turn", "here", "off", "went", "old", "number", "great", "tell", "men", "say", "small", "every", "found", "still", "between", "name", "should", "home", "big", "give", "air", "line", "set", "own", "under", "read", "last", "never", "us", "left", "end", "along", "while", "might", "next", "sound", "below", "saw", "something", "thought", "both", "few", "those", "always", "look", "show", "large", "often", "together", "asked", "house", "dont", "world", "going", "want", "school", "important", "until", "form", "food", "keep", "children", "feet", "land", "side", "without", "boy", "once", "animal", "life", "enough", "took", "four", "head", "above", "kind", "began", "almost", "live", "page", "got", "gave", "need", "feel", "seem", "turn", "hand", "high", "sure", "upon", "head", "help", "home", "side", "move", "both", "five", "once", "same", "must", "name", "left", "each", "done", "open", "case", "show", "live", "play", "went", "told", "seen", "heard", "found", "brought", "whose", "less", "thus", "ago", "else", "morning", "soon", "far", "already", "become", "best", "better", "during", "however", "nothing", "really", "several", "today", "whether", "yet", "young", "full", "own", "part", "such", "thing", "time", "water", "work", "year", "back", "came", "come", "could", "day", "did", "does", "down", "first", "get", "good", "has", "her", "him", "his", "how", "its", "know", "little", "long", "made", "make", "many", "may", "most", "much", "new", "now", "off", "old", "only", "other", "our", "out", "over", "right", "see", "should", "some", "still", "such", "take", "than", "their", "them", "there", "these", "thing", "think", "this", "those", "time", "too", "under", "up", "use", "very", "want", "was", "way", "well", "went", "were", "what", "when", "where", "which", "while", "white", "who", "why", "will", "with", "work", "would", "year", "your"}
+            words = []
+            for title in working_df["titre_clean"].dropna().astype(str):
+                for w in title.lower().split():
+                    w = w.strip(".,;:!?()[]{}\"'\n")
+                    if len(w) > 3 and w not in stopwords:
+                        words.append(w)
+            from collections import Counter
+            counter = Counter(words)
+            top = counter.most_common(15)
+            kw_fallback = pd.DataFrame(top, columns=["mot", "frequence"])
+            fig_kw = px.bar(
+                kw_fallback, x="frequence", y="mot", orientation="h",
+                color="frequence", color_continuous_scale="Magma",
+                template="plotly_dark",
+            )
+            fig_kw.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=0, r=0, t=10, b=0), height=280,
+            )
+            st.plotly_chart(fig_kw, use_container_width=True)
+        else:
+            st.info("Titres non disponibles pour l'analyse des mots clés.")
 
 st.markdown("---")
 

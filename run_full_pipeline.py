@@ -33,33 +33,37 @@ import pandas as pd
 def main(
     sources: list[str],
     gdelt_query: str,
+    gdelt_timespan: str,
+    gdelt_lang: str,
     max_per_feed: int,
     apply_bertopic: bool,
     apply_polymarket: bool,
 ):
     print("\n" + "=" * 65)
-    print("  NEWS PIPELINE — EXÉCUTION COMPLÈTE (LOCAL)")
-    print("  Phases 1 → 4 sans Docker")
+    print("  NEWS PIPELINE - EXECUTION COMPLETE (LOCAL)")
+    print("  Phases 1 -> 4 sans Docker")
     print("=" * 65 + "\n")
 
     # --------------------------------------------------------
-    # PHASE 1 & 2 (local) : Scraping → Bronze → Silver
+    # PHASE 1 & 2 (local) : Scraping -> Bronze -> Silver
     # --------------------------------------------------------
-    print("▶ PHASE 1+2 : Scraping + Bronze + Silver...")
+    print(">>> PHASE 1+2 : Scraping + Bronze + Silver...")
     stats = run_pipeline(
         sources=sources,
         gdelt_query=gdelt_query,
+        gdelt_timespan=gdelt_timespan,
+        gdelt_lang=gdelt_lang,
         max_per_feed=max_per_feed,
         fetch_content=False,
         use_minio=False,
         use_kafka=False,
     )
-    print(f"   ✅ {sum(s['articles_scraped'] for s in stats.values())} articles scrapés\n")
+    print(f"   [OK] {sum(s['articles_scraped'] for s in stats.values())} articles scrapes\n")
 
     # --------------------------------------------------------
-    # PHASE 3 : BERTopic + Polymarket → Gold
+    # PHASE 3 : BERTopic + Polymarket -> Gold
     # --------------------------------------------------------
-    print("▶ PHASE 3 : BERTopic + Polymarket → Gold...")
+    print(">>> PHASE 3 : BERTopic + Polymarket -> Gold...")
     processor = SilverProcessor(silver_root="data/silver")
     aggregator = GoldAggregator(gold_root="data/gold")
 
@@ -69,10 +73,10 @@ def main(
         df = processor.load(source=source)
         if not df.empty:
             frames.append(df)
-            print(f"   Silver chargé pour {source} : {len(df)} articles")
+            print(f"   Silver charge pour {source} : {len(df)} articles")
 
     if not frames:
-        print("   ⚠️  Aucune donnée Silver — pipeline arrêté.")
+        print("   [WARN]  Aucune donnee Silver -- pipeline arrete.")
         return
 
     silver_df = pd.concat(frames, ignore_index=True)
@@ -83,12 +87,12 @@ def main(
         print("   Lancement BERTopic (peut prendre 1-2 min selon le CPU)...")
         silver_df = processor.apply_bertopic(silver_df)
         n_topics = silver_df["topic_id"].nunique() if "topic_id" in silver_df.columns else 0
-        print(f"   ✅ BERTopic : {n_topics} topics détectés")
+        print(f"   [OK] BERTopic : {n_topics} topics detectes")
     else:
         silver_df["topic_id"] = 0
-        silver_df["topic_label"] = "non-modélisé"
+        silver_df["topic_label"] = "non-modelise"
         silver_df["topic_prob"] = 1.0
-        print("   ⏭  BERTopic ignoré (--no-bertopic)")
+        print("   [SKIP] BERTopic ignore (--no-bertopic)")
 
     # Gold + Polymarket
     print("   Construction Gold + Polymarket...")
@@ -96,27 +100,27 @@ def main(
     topic_summaries = aggregator.get_topic_summary(gold_df)
     gold_path = aggregator.save(gold_df, topic_summaries)
     enriched = gold_df["polymarket_prob"].notna().sum() if "polymarket_prob" in gold_df.columns else 0
-    print(f"   ✅ Gold sauvegardé → {gold_path}")
-    print(f"   ✅ {len(topic_summaries)} topics résumés | {enriched} signaux Polymarket\n")
+    print(f"   [OK] Gold sauvegarde -> {gold_path}")
+    print(f"   [OK] {len(topic_summaries)} topics resumes | {enriched} signaux Polymarket\n")
 
     # --------------------------------------------------------
     # PHASE 4 : Instructions Dashboard
     # --------------------------------------------------------
-    print("▶ PHASE 4 : Dashboard Streamlit")
-    print("   Pour lancer le dashboard, exécutez :")
-    print("   ┌─────────────────────────────────────────────┐")
-    print("   │  streamlit run dashboard/app.py             │")
-    print("   └─────────────────────────────────────────────┘")
+    print(">>> PHASE 4 : Dashboard Streamlit")
+    print("   Pour lancer le dashboard, executez :")
+    print("   +-----------------------------------------------+")
+    print("   |  streamlit run dashboard/app.py               |")
+    print("   +-----------------------------------------------+")
     print("   (Installez d'abord : pip install streamlit plotly)\n")
 
     # --------------------------------------------------------
-    # RÉSUMÉ FINAL
+    # RESUME FINAL
     # --------------------------------------------------------
     print("=" * 65)
-    print("  ✅ PIPELINE COMPLET TERMINÉ")
-    print(f"     Articles scrapés  : {sum(s['articles_scraped'] for s in stats.values())}")
+    print("  [OK] PIPELINE COMPLET TERMINE")
+    print(f"     Articles scrapes  : {sum(s['articles_scraped'] for s in stats.values())}")
     print(f"     Articles Gold OK  : {(gold_df['quality_status'] == 'OK').sum() if 'quality_status' in gold_df.columns else len(gold_df)}")
-    print(f"     Topics détectés   : {len(topic_summaries)}")
+    print(f"     Topics detectes   : {len(topic_summaries)}")
     print(f"     Signaux Polymarket: {enriched}")
     print("=" * 65 + "\n")
 
@@ -124,10 +128,16 @@ def main(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pipeline complet local — Phases 1 à 4")
     parser.add_argument("--source", nargs="+", default=["bbc"],
-                        choices=["hespress", "bbc", "gdelt"],
+                        choices=["hespress", "bbc", "gdelt", "akhbarona", "lakom", "barlamane", "aljazeera", "cnn", "reuters"],
                         help="Sources à scraper")
     parser.add_argument("--gdelt-query", default="Maroc",
                         help="Requête GDELT")
+    parser.add_argument("--gdelt-timespan", default="6h",
+                        choices=["1h", "6h", "1d", "1w"],
+                        help="Fenêtre temporelle GDELT")
+    parser.add_argument("--gdelt-lang", default="french",
+                        choices=["french", "english", "arabic"],
+                        help="Langue des sources GDELT")
     parser.add_argument("--max-per-feed", type=int, default=15,
                         help="Articles max par flux")
     parser.add_argument("--no-bertopic", action="store_true",
@@ -139,6 +149,8 @@ if __name__ == "__main__":
     main(
         sources=args.source,
         gdelt_query=args.gdelt_query,
+        gdelt_timespan=args.gdelt_timespan,
+        gdelt_lang=args.gdelt_lang,
         max_per_feed=args.max_per_feed,
         apply_bertopic=not args.no_bertopic,
         apply_polymarket=not args.no_polymarket,

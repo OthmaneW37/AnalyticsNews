@@ -31,6 +31,8 @@ class Article:
         contenu: Optional[str] = None,
         pays: Optional[str] = None,
         raw_source: Optional[str] = None,
+        auteur: Optional[str] = None,
+        categorie: Optional[str] = None,
     ):
         self.titre = titre
         self.url = url
@@ -40,6 +42,8 @@ class Article:
         self.contenu = contenu or ""
         self.pays = pays or "unknown"
         self.raw_source = raw_source or source
+        self.auteur = auteur or ""
+        self.categorie = categorie or ""
         # Identifiant déterministe basé sur l'URL
         self.article_id = hashlib.md5(url.encode()).hexdigest()
 
@@ -54,6 +58,8 @@ class Article:
             "contenu": self.contenu,
             "pays": self.pays,
             "raw_source": self.raw_source,
+            "auteur": self.auteur,
+            "categorie": self.categorie,
             "ingested_at": datetime.utcnow().isoformat(),
         }
 

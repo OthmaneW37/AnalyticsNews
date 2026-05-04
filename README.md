@@ -1,7 +1,7 @@
 # News Pipeline — Architecture de données
 
 Pipeline de collecte et traitement d'articles de presse multilingue
-avec architecture Bronze / Silver / Gold.
+avec architecture Bronze / Silver / Gold, Data Warehouse DuckDB et Dashboard Streamlit.
 
 ---
 
@@ -11,23 +11,50 @@ avec architecture Bronze / Silver / Gold.
 news-pipeline/
 ├── scrapers/
 │   ├── base_scraper.py        ← Contrat abstrait (Article, BaseScraper)
-│   ├── hespress_scraper.py    ← Scraper Hespress via RSS
-│   ├── bbc_scraper.py         ← Scraper BBC News via RSS
-│   └── gdelt_client.py        ← Client GDELT v2 (Différenciateur #1)
+│   ├── hespress_scraper.py    ← Hespress (MA)
+│   ├── akhbarona_scraper.py   ← Akhbarona (MA)
+│   ├── lakom_scraper.py       ← Lakom (MA)
+│   ├── barlamane_scraper.py   ← Barlamane (MA)
+│   ├── bbc_scraper.py         ← BBC News (GB)
+│   ├── aljazeera_scraper.py   ← Al Jazeera (QA)
+│   ├── cnn_scraper.py         ← CNN (US)
+│   ├── reuters_scraper.py     ← Reuters (US)
+│   └── gdelt_client.py        ← GDELT v2 (Multilingue)
 │
 ├── datalake/
 │   ├── bronze_writer.py       ← Écriture JSON brut (Bronze)
-│   └── silver_processor.py   ← Nettoyage + qualité (Silver)
+│   ├── silver_processor.py   ← Nettoyage + qualité + langdetect (Silver)
+│   └── gold_aggregator.py    ← Agrégation BERTopic + Polymarket (Gold)
 │
 ├── ingestion/
-│   └── batch_ingestion.py    ← Orchestrateur CLI Phase 1
+│   ├── batch_ingestion.py    ← Orchestrateur CLI batch
+│   ├── kafka_producer.py     ← Events Kafka (streaming)
+│   └── kafka_consumer.py     ← Consumer temps réel
+│
+├── warehouse/
+│   ├── models.sql            ← Schéma SQL analytique
+│   └── duckdb_manager.py     ← Data Warehouse local (DuckDB)
+│
+├── dashboard/
+│   └── app.py                ← Streamlit (Phase 4)
+│
+├── orchestration/dags/
+│   ├── batch_dag.py          ← DAG Airflow ingestion
+│   └── quality_dag.py        ← DAG Airflow qualité + Gold
 │
 ├── data/                     ← Généré automatiquement au runtime
 │   ├── bronze/<source>/<date>/
-│   └── silver/<source>/<date>/
+│   ├── silver/<source>/<date>/
+│   ├── gold/<date>/
+│   └── warehouse/
 │
-├── test_phase1.py            ← Smoke test de validation
-└── requirements.txt
+├── test_phase1.py            ← Smoke test rapide
+├── run_full_pipeline.py      ← Pipeline complet Phases 1→4
+├── docker-compose.yml        ← Infrastructure distribuée
+├── requirements.txt
+├── README.md
+├── ARCHITECTURE.md           ← Schéma et flux de données
+└── GOVERNANCE.md             ← Catalog, lineage, qualité
 ```
 
 ---
@@ -38,6 +65,12 @@ news-pipeline/
 pip install -r requirements.txt
 ```
 
+> **Note** : `torch` doit être installé séparément selon votre plateforme :
+> ```bash
+> # CPU only
+> pip install torch --index-url https://download.pytorch.org/whl/cpu
+> ```
+
 ---
 
 ## Utilisation
@@ -47,27 +80,27 @@ pip install -r requirements.txt
 python -X utf8 test_phase1.py --source bbc --max 5
 ```
 
+### Test avec une source marocaine
+```bash
+python -X utf8 test_phase1.py --source hespress --max 10
+```
+
 ### Test avec GDELT
 ```bash
 python -X utf8 test_phase1.py --source gdelt --query "Maroc économie"
 ```
 
-### Test avec Hespress
+### Pipeline complet local (toutes les sources)
 ```bash
-python -X utf8 test_phase1.py --source hespress --max 10
+python -X utf8 run_full_pipeline.py --source bbc hespress gdelt akhbarona lakom barlamane aljazeera cnn reuters --max-per-feed 10
 ```
 
-### Pipeline complet (toutes les sources)
+### Pipeline batch (CLI)
 ```bash
-python -X utf8 -m ingestion.batch_ingestion
+python -X utf8 -m ingestion.batch_ingestion --sources bbc hespress --max-per-feed 10
 ```
 
-### Pipeline filtré
-```bash
-python -X utf8 -m ingestion.batch_ingestion --sources hespress gdelt --gdelt-query "Gaza" --gdelt-lang french
-```
-
-### Mode rapide (sans fetch_content, idéal pour les tests)
+### Mode rapide (sans fetch_content)
 ```bash
 python -X utf8 -m ingestion.batch_ingestion --no-content --max-per-feed 10
 ```
@@ -76,37 +109,27 @@ python -X utf8 -m ingestion.batch_ingestion --no-content --max-per-feed 10
 
 ## Phase 2 : Architecture Distribuée (Docker)
 
-Cette phase ajoute MinIO (Data Lake local), Kafka (Streaming des événements), et Apache Airflow (Orchestration).
+> Docker ne fonctionne pas sur ce PC ? Pas de problème. Tout fonctionne **en local sans Docker**. Le `docker-compose.yml` est prêt à être transféré sur un autre PC.
 
-### Lancer l'infrastructure
-
-Assurez-vous que **Docker Desktop** est lancé, puis exécutez :
+### Lancer l'infrastructure (sur un PC avec Docker)
 
 ```bash
 docker-compose up -d
 ```
 
-Cette commande va démarrer 5 conteneurs :
-1. `news_minio` : MinIO (Port 9000: API, 9001: Console Web)
-2. `news_minio_setup` : Création auto des buckets (`bronze`, `silver`, `gold`)
-3. `news_kafka` : Broker Kafka (Port 9092)
-4. `news_postgres` : Base de données pour Airflow
-5. `news_airflow_web` et `news_airflow_scheduler` : Orchestrateur Airflow (Port 8080)
+Services démarrés :
+1. `news_minio` — MinIO (API 9000, Console 9001)
+2. `news_minio_setup` — Création auto des buckets bronze/silver/gold
+3. `news_kafka` — Broker Kafka (9092)
+4. `news_postgres` — PostgreSQL pour Airflow
+5. `news_airflow_web` / `news_airflow_scheduler` — Airflow (8080)
+6. `news_dashboard` — Streamlit (8501)
 
-### Tester MinIO et Kafka en local
+### Interfaces Web
 
-Vous pouvez lancer le script Python localement en activant MinIO et Kafka :
-
-```bash
-python -X utf8 -m ingestion.batch_ingestion --use-minio --use-kafka --source bbc
-```
-
-### Accéder aux Interfaces Web
-
-- **MinIO Console** : [http://localhost:9001](http://localhost:9001) (User: `admin`, Password: `password`)
-- **Airflow Web UI** : [http://localhost:8080](http://localhost:8080) (User: `admin`, Password: `admin`)
-
-Depuis l'interface Airflow, vous pouvez activer le DAG `news_batch_ingestion` pour qu'il s'exécute automatiquement toutes les 2 heures.
+- **MinIO Console** : http://localhost:9001 (admin / password)
+- **Airflow Web UI** : http://localhost:8080 (admin / admin)
+- **Dashboard Streamlit** : http://localhost:8501
 
 ---
 
@@ -115,21 +138,92 @@ Depuis l'interface Airflow, vous pouvez activer le DAG `news_batch_ingestion` po
 | Couche | Format | Description |
 |--------|--------|-------------|
 | **Bronze** | JSON | Données brutes, S3 `s3://bronze/source/date/` |
-| **Silver** | Parquet + JSON | Données nettoyées, S3 `s3://silver/source/date/` |
-| **Gold** | *(Phase 3)* | Agrégats BERTopic + signaux Polymarket |
+| **Silver** | Parquet + JSON | Données nettoyées, détection langue, qualité |
+| **Gold** | Parquet + JSON | Agrégats BERTopic + signaux Polymarket + tables analytiques |
+| **Warehouse** | DuckDB | Tables analytiques SQL + vues |
+| **Dashboard** | Streamlit | Visualisation interactive |
 
 ---
 
 ## Contrôle qualité Silver
 
-Chaque article passe une batterie de contrôles :
+Trois dimensions contrôlées :
 
-| Flag | Critère |
-|------|---------|
-| `TITRE_VIDE_OU_TROP_COURT` | Titre < 5 caractères |
-| `CONTENU_TROP_COURT` | Contenu < 50 caractères après nettoyage |
-| `URL_MANQUANTE` | Champ `url` vide |
-| `DATE_MANQUANTE` | Date non parsable |
+| Dimension | Flags possibles |
+|-----------|-----------------|
+| **Complétude** | `TITRE_VIDE_OU_TROP_COURT`, `CONTENU_TROP_COURT`, `URL_MANQUANTE`, `DATE_MANQUANTE`, `AUTEUR_MANQUANT`, `CATEGORIE_MANQUANTE` |
+| **Validité** | `URL_INVALIDE` |
+| **Cohérence** | `LANGUE_INCOHERENTE` (déclarée vs détectée) |
+
+---
+
+## Data Warehouse (DuckDB)
+
+Le Data Warehouse est un fichier DuckDB local : `data/warehouse/news_warehouse.duckdb`.
+
+### Tables principales
+
+- `gold_articles` — Articles enrichis (Gold)
+- `gold_topic_summary` — Résumés par topic
+- `ingestion_stats` — Stats d'ingestion par run
+- `analytics_articles_by_day` — Agrégation quotidienne
+- `analytics_articles_by_theme` — Agrégation par topic
+- `analytics_articles_by_country` — Agrégation par pays
+- `analytics_articles_by_source` — Agrégation par source
+
+### Vues
+
+- `v_topic_daily_coverage`
+- `v_top_topics_with_signal`
+- `v_source_breakdown`
+- `v_daily_stats`
+
+---
+
+## Dashboard Streamlit
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Visualisations disponibles :
+- **KPIs** : Articles, sources, langues, topics, qualité
+- **Couverture par topic** (BERTopic)
+- **Signaux Polymarket** (gauge)
+- **Répartition par langue / pays / source**
+- **Timeline de publication**
+- **Nombre d'articles par source**
+- **Mots clés les plus fréquents**
+- **Rapport qualité**
+- **Table interactive** des articles récents
+
+---
+
+## Sources supportées
+
+| Source | Langue | Méthode | Pays |
+|--------|--------|---------|------|
+| Hespress | FR/AR | RSS + HTML | MA |
+| Akhbarona | FR | RSS + HTML | MA |
+| Lakom | FR | RSS + HTML | MA |
+| Barlamane | FR | RSS + HTML | MA |
+| BBC News | EN | RSS + HTML | GB |
+| Al Jazeera | EN | RSS + HTML | QA |
+| CNN | EN | RSS + HTML | US |
+| Reuters | EN | RSS + HTML | US |
+| GDELT v2 | Multilingue | API REST | Varié |
+
+---
+
+## Livrables
+
+- [x] Présentation détaillée du projet (README + ARCHITECTURE.md)
+- [x] Schéma d'architecture (ARCHITECTURE.md)
+- [x] Code source versionné sur Git
+- [x] Fichiers de déploiement (docker-compose.yml)
+- [x] Documentation technique (README, ARCHITECTURE.md, GOVERNANCE.md)
+- [x] Dashboards de visualisation (Streamlit)
+- [x] Démonstration fonctionnelle du pipeline (test_phase1.py, run_full_pipeline.py)
 
 ---
 
@@ -137,17 +231,7 @@ Chaque article passe une batterie de contrôles :
 
 | Phase | Composants | Statut |
 |-------|-----------|--------|
-| **Phase 1** | Scrapers + Bronze + Silver (Local) | ✅ **DONE** |
-| **Phase 2** | MinIO + Kafka + Airflow (Docker) | ✅ **DONE** |
-| **Phase 3** | BERTopic + Polymarket | ⏳ À venir |
-| **Phase 4** | Dashboard Streamlit | ⏳ À venir |
-
----
-
-## Sources supportées
-
-| Source | Langue | Méthode | Diff. |
-|--------|--------|---------|-------|
-| Hespress | FR/AR | RSS + HTML | — |
-| BBC News | EN | RSS + HTML | — |
-| GDELT v2 | Multilingue | API REST | **#1** |
+| **Phase 1** | Scrapers + Bronze + Silver (Local) | ✅ DONE |
+| **Phase 2** | MinIO + Kafka + Airflow (Docker) | ✅ DONE |
+| **Phase 3** | BERTopic + Polymarket + Gold | ✅ DONE |
+| **Phase 4** | Dashboard Streamlit + Data Warehouse DuckDB | ✅ DONE |

@@ -23,9 +23,15 @@ if sys.stdout.encoding != 'utf-8':
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from scrapers.hespress_scraper import HepressScraper
+from scrapers.hespress_scraper import HespressScraper
 from scrapers.bbc_scraper import BBCScraper
 from scrapers.gdelt_client import GDELTClient
+from scrapers.akhbarona_scraper import AkhbaronaScraper
+from scrapers.lakom_scraper import LakomScraper
+from scrapers.barlamane_scraper import BarlamaneScraper
+from scrapers.aljazeera_scraper import AlJazeeraScraper
+from scrapers.cnn_scraper import CNNScraper
+from scrapers.reuters_scraper import ReutersScraper
 from datalake.bronze_writer import BronzeWriter
 from datalake.silver_processor import SilverProcessor
 
@@ -40,11 +46,23 @@ def test_scraper(source: str = "bbc", query: str = "Maroc", max_articles: int = 
     # ------------------------------------------------------------------
     print("▶ Étape 1 : Scraping...")
     if source == "hespress":
-        scraper = HepressScraper(max_per_feed=max_articles, fetch_content=False)
+        scraper = HespressScraper(max_per_feed=max_articles, fetch_content=False)
     elif source == "bbc":
         scraper = BBCScraper(max_per_feed=max_articles, fetch_content=False)
     elif source == "gdelt":
         scraper = GDELTClient(query=query, max_records=max_articles, timespan="1d")
+    elif source == "akhbarona":
+        scraper = AkhbaronaScraper(max_per_feed=max_articles, fetch_content=False)
+    elif source == "lakom":
+        scraper = LakomScraper(max_per_feed=max_articles, fetch_content=False)
+    elif source == "barlamane":
+        scraper = BarlamaneScraper(max_per_feed=max_articles, fetch_content=False)
+    elif source == "aljazeera":
+        scraper = AlJazeeraScraper(max_per_feed=max_articles, fetch_content=False)
+    elif source == "cnn":
+        scraper = CNNScraper(max_per_feed=max_articles, fetch_content=False)
+    elif source == "reuters":
+        scraper = ReutersScraper(max_per_feed=max_articles, fetch_content=False)
     else:
         print(f"❌ Source inconnue : {source}")
         return
@@ -108,7 +126,7 @@ def test_scraper(source: str = "bbc", query: str = "Maroc", max_articles: int = 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test Phase 1 du pipeline")
-    parser.add_argument("--source", default="bbc", choices=["hespress", "bbc", "gdelt"])
+    parser.add_argument("--source", default="bbc", choices=["hespress", "bbc", "gdelt", "akhbarona", "lakom", "barlamane", "aljazeera", "cnn", "reuters"])
     parser.add_argument("--query", default="Maroc", help="Requête GDELT si source=gdelt")
     parser.add_argument("--max", type=int, default=5, help="Nombre max d'articles")
     args = parser.parse_args()

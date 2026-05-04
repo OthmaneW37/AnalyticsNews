@@ -103,6 +103,8 @@ class GDELTClient(BaseScraper):
             contenu=a.get("title", ""),   # GDELT ne fournit que le titre
             pays=a.get("sourcecountry", "unknown"),
             raw_source="gdelt",
+            auteur="",
+            categorie="",
         )
 
     # ------------------------------------------------------------------

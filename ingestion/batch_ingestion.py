@@ -8,9 +8,15 @@ from pathlib import Path
 # Ajoute la racine du projet au path pour les imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scrapers.hespress_scraper import HepressScraper
+from scrapers.hespress_scraper import HespressScraper
 from scrapers.bbc_scraper import BBCScraper
 from scrapers.gdelt_client import GDELTClient
+from scrapers.akhbarona_scraper import AkhbaronaScraper
+from scrapers.lakom_scraper import LakomScraper
+from scrapers.barlamane_scraper import BarlamaneScraper
+from scrapers.aljazeera_scraper import AlJazeeraScraper
+from scrapers.cnn_scraper import CNNScraper
+from scrapers.reuters_scraper import ReutersScraper
 from datalake.bronze_writer import BronzeWriter
 from datalake.silver_processor import SilverProcessor
 from ingestion.kafka_producer import NewsKafkaProducer  # noqa: E402 — ajouté après sys.path.insert
@@ -38,7 +44,7 @@ def run_pipeline(
     """
     Exécute le pipeline d'ingestion batch complet.
     """
-    sources = sources or ["hespress", "bbc", "gdelt"]
+    sources = sources or ["hespress", "bbc", "gdelt", "akhbarona", "lakom", "barlamane", "aljazeera", "cnn", "reuters"]
     bronze_writer = BronzeWriter(root=bronze_root, use_minio=use_minio)
     silver_processor = SilverProcessor(silver_root=silver_root, use_minio=use_minio)
     kafka_producer = NewsKafkaProducer(use_kafka=use_kafka)
@@ -72,8 +78,8 @@ def run_pipeline(
         # 3. KAFKA EVENT
         if articles and bronze_path:
             kafka_producer.send_ingestion_event(
-                source=source, 
-                count=len(articles), 
+                source=source,
+                count=len(articles),
                 bronze_path=str(bronze_path)
             )
 
@@ -100,7 +106,7 @@ def run_pipeline(
     logger.info(f"\n{'='*60}")
     logger.info(f"PIPELINE COMPLET en {total_elapsed}s")
     _print_summary(stats)
-    
+
     kafka_producer.close()
 
     return stats
@@ -119,7 +125,7 @@ def _get_scraper(
     fetch_content: bool,
 ):
     if source == "hespress":
-        return HepressScraper(
+        return HespressScraper(
             max_per_feed=max_per_feed,
             fetch_content=fetch_content,
         )
@@ -135,6 +141,18 @@ def _get_scraper(
             timespan=gdelt_timespan,
             sourcelang=gdelt_lang,
         )
+    elif source == "akhbarona":
+        return AkhbaronaScraper(max_per_feed=max_per_feed, fetch_content=fetch_content)
+    elif source == "lakom":
+        return LakomScraper(max_per_feed=max_per_feed, fetch_content=fetch_content)
+    elif source == "barlamane":
+        return BarlamaneScraper(max_per_feed=max_per_feed, fetch_content=fetch_content)
+    elif source == "aljazeera":
+        return AlJazeeraScraper(max_per_feed=max_per_feed, fetch_content=fetch_content)
+    elif source == "cnn":
+        return CNNScraper(max_per_feed=max_per_feed, fetch_content=fetch_content)
+    elif source == "reuters":
+        return ReutersScraper(max_per_feed=max_per_feed, fetch_content=fetch_content)
     return None
 
 
@@ -165,8 +183,8 @@ def parse_args():
     parser.add_argument(
         "--sources",
         nargs="+",
-        default=["hespress", "bbc", "gdelt"],
-        choices=["hespress", "bbc", "gdelt"],
+        default=["hespress", "bbc", "gdelt", "akhbarona", "lakom", "barlamane", "aljazeera", "cnn", "reuters"],
+        choices=["hespress", "bbc", "gdelt", "akhbarona", "lakom", "barlamane", "aljazeera", "cnn", "reuters"],
         help="Sources à scraper (défaut : toutes)",
     )
     parser.add_argument(

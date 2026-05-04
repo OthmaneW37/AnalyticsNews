@@ -20,6 +20,7 @@ import io
 import json
 import logging
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +34,14 @@ try:
     MINIO_AVAILABLE = True
 except ImportError:
     MINIO_AVAILABLE = False
+
+# Ajoute la racine au path pour importer warehouse
+sys.path.insert(0, str(Path(__file__).parent.parent))
+try:
+    from warehouse.duckdb_manager import DuckDBManager
+    DUCKDB_AVAILABLE = True
+except ImportError:
+    DUCKDB_AVAILABLE = False
 
 # Configuration MinIO
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
@@ -188,11 +197,13 @@ class GoldAggregator:
         Si True, écrit dans le bucket 'gold' sur MinIO.
     """
 
-    def __init__(self, gold_root: str = "data/gold", use_minio: bool = False):
+    def __init__(self, gold_root: str = "data/gold", use_minio: bool = False, use_duckdb: bool = True):
         self.gold_root = Path(gold_root)
         self.use_minio = use_minio and MINIO_AVAILABLE
+        self.use_duckdb = use_duckdb and DUCKDB_AVAILABLE
         self.bucket_name = "gold"
         self.polymarket = PolymarketEnricher()
+        self.duckdb_manager = None
 
         if self.use_minio:
             try:
@@ -208,6 +219,14 @@ class GoldAggregator:
             except Exception as e:
                 logger.error(f"[Gold] Erreur connexion MinIO : {e}")
                 self.use_minio = False
+
+        if self.use_duckdb:
+            try:
+                self.duckdb_manager = DuckDBManager()
+                logger.info("[Gold] Connecté au Data Warehouse DuckDB.")
+            except Exception as e:
+                logger.error(f"[Gold] Erreur connexion DuckDB : {e}")
+                self.use_duckdb = False
 
     def build_gold(self, silver_df: pd.DataFrame, enrich_polymarket: bool = True) -> pd.DataFrame:
         """
@@ -297,7 +316,7 @@ class GoldAggregator:
         return summaries
 
     def save(self, gold_df: pd.DataFrame, topic_summaries: list[dict] = None) -> Path | str:
-        """Sauvegarde la couche Gold en local ou sur MinIO."""
+        """Sauvegarde la couche Gold en local, sur MinIO et dans le Data Warehouse."""
         if gold_df is None or gold_df.empty:
             logger.warning("[Gold] Rien à sauvegarder.")
             return None
@@ -353,6 +372,17 @@ class GoldAggregator:
             f.write(topics_json)
 
         logger.info(f"[Gold] Sauvegardé en local → {parquet_path}")
+
+        # Data Warehouse DuckDB
+        if self.use_duckdb and self.duckdb_manager is not None:
+            try:
+                self.duckdb_manager.insert_gold_articles(gold_df)
+                self.duckdb_manager.insert_topic_summaries(topic_summaries or [], run_date=date_str)
+                self.duckdb_manager.refresh_analytics_tables()
+                logger.info("[Gold] Données insérées dans le Data Warehouse.")
+            except Exception as e:
+                logger.error(f"[Gold] Erreur insertion DuckDB : {e}")
+
         return parquet_path
 
     def load(self, date: str = None) -> pd.DataFrame:

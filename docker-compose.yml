@@ -129,6 +129,29 @@ services:
     networks:
       - news_network
 
+  # ==========================================
+  # DASHBOARD : Streamlit
+  # ==========================================
+  dashboard:
+    image: python:3.11-slim
+    container_name: news_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WAREHOUSE_PATH=/data/warehouse/news_warehouse.duckdb
+    volumes:
+      - ./:/app
+      - ./data:/data
+    working_dir: /app
+    command: >
+      bash -c "
+      pip install -r requirements.txt &&
+      streamlit run dashboard/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
+      "
+    networks:
+      - news_network
+
 volumes:
   minio_data:
   kafka_data:

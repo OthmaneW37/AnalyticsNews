@@ -9,6 +9,7 @@ Dépendances : requests, beautifulsoup4, feedparser
 
 import time
 import logging
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -38,7 +39,7 @@ HEADERS = {
 }
 
 
-class HepressScraper(BaseScraper):
+class HespressScraper(BaseScraper):
     """
     Scrape les articles Hespress via RSS + extraction HTML du corps.
 
@@ -110,15 +111,24 @@ class HepressScraper(BaseScraper):
                 full = self._fetch_full_content(url)
                 contenu = full if full else summary
 
+            auteur = entry.get("author", "").strip()
+            categories = [t.get("term", "") for t in entry.get("tags", [])]
+            categorie = categories[0] if categories else ""
+
+            # Détection simple FR vs AR basée sur les caractères du titre
+            langue = "ar" if re.search(r'[\u0600-\u06FF]', titre) else "fr"
+
             article = Article(
                 titre=titre,
                 url=url,
                 source="hespress.com",
-                langue="fr",            # Hespress publie surtout en FR
+                langue=langue,
                 date_publication=date_pub,
                 contenu=contenu,
                 pays="MA",
                 raw_source="hespress_rss",
+                auteur=auteur,
+                categorie=categorie,
             )
             results.append(article)
             time.sleep(self.delay)  # politesse
@@ -188,3 +198,7 @@ class HepressScraper(BaseScraper):
             except ValueError:
                 continue
         return raw  # retourne brut si parsing échoue
+
+
+# Alias rétrocompatible
+HepressScraper = HespressScraper

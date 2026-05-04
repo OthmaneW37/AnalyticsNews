@@ -1,10 +1,8 @@
 """
-bbc_scraper.py
+cnn_scraper.py
 --------------
-Scraper pour BBC News (flux RSS publics).
-Couvre plusieurs catégories en anglais + la section Afrique.
-
-Dépendances : requests, beautifulsoup4, feedparser
+Scraper pour CNN (https://edition.cnn.com) — média international.
+Stratégie : lecture des flux RSS par section.
 """
 
 import time
@@ -20,13 +18,11 @@ from scrapers.base_scraper import Article, BaseScraper
 
 logger = logging.getLogger(__name__)
 
-# Flux RSS BBC disponibles sans authentification
-BBC_FEEDS = {
-    "world":   "http://feeds.bbci.co.uk/news/world/rss.xml",
-    "africa":  "http://feeds.bbci.co.uk/news/world/africa/rss.xml",
-    "business": "http://feeds.bbci.co.uk/news/business/rss.xml",
-    "technology": "http://feeds.bbci.co.uk/news/technology/rss.xml",
-    "science": "http://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+CNN_FEEDS = {
+    "top": "http://rss.cnn.com/rss/edition.rss",
+    "world": "http://rss.cnn.com/rss/edition_world.rss",
+    "business": "http://rss.cnn.com/rss/money_news_international.rss",
+    "tech": "http://rss.cnn.com/rss/edition_technology.rss",
 }
 
 HEADERS = {
@@ -37,21 +33,9 @@ HEADERS = {
 }
 
 
-class BBCScraper(BaseScraper):
+class CNNScraper(BaseScraper):
     """
-    Scrape les articles BBC News via leurs flux RSS officiels.
-
-    Paramètres
-    ----------
-    categories : list[str]
-        Clés des catégories à scraper (voir BBC_FEEDS).
-        Défaut : toutes les catégories disponibles.
-    max_per_feed : int
-        Articles max par flux (défaut 25).
-    fetch_content : bool
-        Récupère le texte complet de l'article (défaut True).
-    delay : float
-        Délai entre requêtes en secondes (défaut 0.5 — BBC tolère mieux).
+    Scrape les articles CNN via RSS.
     """
 
     def __init__(
@@ -61,34 +45,26 @@ class BBCScraper(BaseScraper):
         fetch_content: bool = True,
         delay: float = 0.5,
     ):
-        super().__init__(name="bbc")
-        self.categories = categories or list(BBC_FEEDS.keys())
+        super().__init__(name="cnn")
+        self.categories = categories or list(CNN_FEEDS.keys())
         self.max_per_feed = max_per_feed
         self.fetch_content = fetch_content
         self.delay = delay
-
-    # ------------------------------------------------------------------
-    # Méthode principale
-    # ------------------------------------------------------------------
 
     def fetch_articles(self) -> list[Article]:
         articles: list[Article] = []
         seen_urls: set[str] = set()
 
         for cat in self.categories:
-            feed_url = BBC_FEEDS.get(cat)
+            feed_url = CNN_FEEDS.get(cat)
             if not feed_url:
                 self.logger.warning(f"Catégorie inconnue : {cat}")
                 continue
-            self.logger.info(f"Lecture du flux BBC [{cat}] : {feed_url}")
+            self.logger.info(f"Lecture du flux CNN [{cat}] : {feed_url}")
             results = self._parse_feed(feed_url, cat, seen_urls)
             articles.extend(results)
 
         return articles
-
-    # ------------------------------------------------------------------
-    # Parsing RSS
-    # ------------------------------------------------------------------
 
     def _parse_feed(self, feed_url: str, category: str, seen_urls: set) -> list[Article]:
         try:
@@ -98,7 +74,7 @@ class BBCScraper(BaseScraper):
             return []
 
         results = []
-        for entry in feed.entries[: self.max_per_feed]:
+        for entry in feed.entries[:self.max_per_feed]:
             url = entry.get("link", "")
             if not url or url in seen_urls:
                 continue
@@ -107,28 +83,25 @@ class BBCScraper(BaseScraper):
             titre = entry.get("title", "").strip()
             date_raw = entry.get("published", "")
             date_pub = self._normalize_date(date_raw)
-            summary = BeautifulSoup(
-                entry.get("summary", ""), "html.parser"
-            ).get_text(separator=" ").strip()
+            summary = BeautifulSoup(entry.get("summary", ""), "html.parser").get_text(separator=" ").strip()
+            auteur = entry.get("author", "").strip()
+            categories = [t.get("term", "") for t in entry.get("tags", [])]
+            categorie = categories[0] if categories else category
 
             contenu = summary
             if self.fetch_content:
                 full = self._fetch_full_content(url)
                 contenu = full if full else summary
 
-            auteur = entry.get("author", "").strip()
-            categories = [t.get("term", "") for t in entry.get("tags", [])]
-            categorie = categories[0] if categories else category
-
             article = Article(
                 titre=titre,
                 url=url,
-                source="bbc.co.uk",
+                source="cnn.com",
                 langue="en",
                 date_publication=date_pub,
                 contenu=contenu,
-                pays="GB",
-                raw_source=f"bbc_rss_{category}",
+                pays="US",
+                raw_source=f"cnn_rss_{category}",
                 auteur=auteur,
                 categorie=categorie,
             )
@@ -137,27 +110,19 @@ class BBCScraper(BaseScraper):
 
         return results
 
-    # ------------------------------------------------------------------
-    # Extraction contenu BBC
-    # ------------------------------------------------------------------
-
     def _fetch_full_content(self, url: str) -> Optional[str]:
-        """
-        BBC structure ses articles avec des blocs <div data-component="text-block">.
-        On concatene tous ces blocs pour obtenir l'article complet.
-        """
         try:
             resp = requests.get(url, headers=HEADERS, timeout=10)
             resp.raise_for_status()
             soup = BeautifulSoup(resp.text, "html.parser")
 
-            # Sélecteurs BBC modernes (2024+)
-            text_blocks = soup.select('div[data-component="text-block"] p')
-            if text_blocks:
-                return "\n".join(p.get_text(strip=True) for p in text_blocks)
-
-            # Fallback sélecteurs anciens
-            for sel in ["article", "div.story-body__inner", "main"]:
+            selectors = [
+                "article",
+                "div.article__content",
+                "div.l-container",
+                "div#maincontent",
+            ]
+            for sel in selectors:
                 tag = soup.select_one(sel)
                 if tag:
                     for unwanted in tag.select("aside, nav, script, style, figure"):
@@ -167,14 +132,9 @@ class BBCScraper(BaseScraper):
                         return text
 
             return None
-
         except Exception as exc:
-            self.logger.debug(f"Erreur de récupération contenu BBC ({url}): {exc}")
+            self.logger.debug(f"Erreur récupération contenu ({url}): {exc}")
             return None
-
-    # ------------------------------------------------------------------
-    # Normalisation de date
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _normalize_date(raw: str) -> str:

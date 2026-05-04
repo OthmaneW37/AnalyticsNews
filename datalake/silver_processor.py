@@ -131,9 +131,16 @@ class SilverProcessor:
         df["source"] = df["source"].str.lower().str.strip()
         df["langue"] = df["langue"].str.lower().str.strip()
         df["pays"] = df["pays"].str.upper().str.strip()
+        df["auteur"] = df.get("auteur", pd.Series([""] * len(df))).astype(str).str.strip()
+        df["categorie"] = df.get("categorie", pd.Series([""] * len(df))).astype(str).str.strip()
 
         # ------------------------------------------------------------------
-        # 4. Champs enrichis
+        # 4. Détection automatique de la langue (cohérence)
+        # ------------------------------------------------------------------
+        df["langue_detectee"] = df["contenu_clean"].apply(self._detect_language)
+
+        # ------------------------------------------------------------------
+        # 5. Champs enrichis
         # ------------------------------------------------------------------
         df["content_length"] = df["contenu_clean"].str.len()
         df["content_hash"] = df["contenu_clean"].apply(
@@ -142,7 +149,7 @@ class SilverProcessor:
         df["processed_at"] = datetime.utcnow().isoformat()
 
         # ------------------------------------------------------------------
-        # 5. Contrôle qualité
+        # 6. Contrôle qualité (complétude, cohérence, validité)
         # ------------------------------------------------------------------
         df["quality_flags"] = df.apply(self._check_quality, axis=1)
         df["quality_status"] = df["quality_flags"].apply(
@@ -156,7 +163,7 @@ class SilverProcessor:
         )
 
         # ------------------------------------------------------------------
-        # 6. Sélection & ordre des colonnes Silver
+        # 7. Sélection & ordre des colonnes Silver
         # ------------------------------------------------------------------
         silver_cols = [
             "article_id",
@@ -164,12 +171,15 @@ class SilverProcessor:
             "url",
             "source",
             "langue",
+            "langue_detectee",
             "pays",
             "date_publication",
             "contenu_clean",
             "content_length",
             "content_hash",
             "raw_source",
+            "auteur",
+            "categorie",
             "quality_flags",
             "quality_status",
             "processed_at",
@@ -216,34 +226,69 @@ class SilverProcessor:
         return text
 
     # ==================================================================
-    # CONTRÔLE QUALITÉ
+    # CONTRÔLE QUALITÉ (Complétude, Cohérence, Validité)
     # ==================================================================
 
     def _check_quality(self, row: pd.Series) -> list[str]:
         """
         Retourne la liste des problèmes qualité détectés.
+        Dimensions : Complétude, Cohérence, Validité.
         Une liste vide = article de bonne qualité.
         """
         flags = []
 
-        # Titre vide ou trop court
+        # --- COMPLÉTUDE ---
         if not isinstance(row.get("titre_clean"), str) or len(row.get("titre_clean", "")) < MIN_TITLE_LENGTH:
             flags.append("TITRE_VIDE_OU_TROP_COURT")
 
-        # Contenu trop court
         content = row.get("contenu_clean", "")
         if not isinstance(content, str) or len(content) < MIN_CONTENT_LENGTH:
             flags.append("CONTENU_TROP_COURT")
 
-        # URL manquante
         if not row.get("url"):
             flags.append("URL_MANQUANTE")
 
-        # Date manquante ou invalide
         if pd.isna(row.get("date_publication")):
             flags.append("DATE_MANQUANTE")
 
+        # Auteur et catégorie manquants = warning (ne bloque pas la qualité)
+        # car de nombreux flux RSS ne fournissent pas ces champs.
+
+        # --- VALIDITÉ ---
+        url = row.get("url", "")
+        if url and not self._is_url_valid(str(url)):
+            flags.append("URL_INVALIDE")
+
+        # --- COHÉRENCE (warning, non bloquant) ---
+        declared_lang = str(row.get("langue", "")).lower()
+        detected_lang = str(row.get("langue_detectee", "")).lower()
+        content_len = len(str(row.get("contenu_clean", "")))
+        if content_len >= 200 and detected_lang and declared_lang and detected_lang != declared_lang and detected_lang != "unknown":
+            flags.append("LANGUE_INCOHERENTE")
+
         return flags
+
+    @staticmethod
+    def _is_url_valid(url: str) -> bool:
+        """Vérifie que l'URL commence par http(s) et contient un domaine."""
+        if not url:
+            return False
+        return bool(re.match(r"^https?://[^\s/$.?#].[^\s]*$", url, re.IGNORECASE))
+
+    @staticmethod
+    def _detect_language(text: str) -> str:
+        """
+        Détecte la langue d'un texte avec langdetect.
+        Retourne le code ISO 639-1 (fr, en, ar, etc.) ou 'unknown'.
+        """
+        if not isinstance(text, str) or len(text.strip()) < 20:
+            return "unknown"
+        try:
+            from langdetect import detect
+            lang = detect(text)
+            return lang
+        except Exception:
+            return "unknown"
 
     # ==================================================================
     # PERSISTANCE SILVER
