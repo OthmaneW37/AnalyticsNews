@@ -12,8 +12,15 @@ Usage :
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
+
+# Force HuggingFace cache to D: drive (C: is full)
+HF_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".hf_cache")
+os.environ["HF_HOME"] = HF_CACHE
+os.environ["TRANSFORMERS_CACHE"] = HF_CACHE
+os.environ["HF_DATASETS_CACHE"] = HF_CACHE
 
 sys.path.insert(0, str(Path(__file__).parent))
 

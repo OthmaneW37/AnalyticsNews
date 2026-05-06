@@ -43,7 +43,7 @@ services:
   # STREAMING : Kafka (KRaft mode)
   # ==========================================
   kafka:
-    image: bitnami/kafka:3.5
+    image: bitnamilegacy/kafka:3.5
     container_name: news_kafka
     ports:
       - "9092:9092"
