@@ -77,43 +77,67 @@ st.markdown("""
 
     /* KPI Cards */
     .kpi-card {
-        background: linear-gradient(135deg, #1a1a2e, #16213e);
-        border: 1px solid rgba(255,255,255,0.08);
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border: 1px solid rgba(255,255,255,0.06);
         border-radius: 16px;
-        padding: 1.4rem 1.5rem;
+        padding: 1.2rem 1rem;
         box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         text-align: center;
+        transition: all 0.3s ease;
+    }
+    .kpi-card:hover {
+        border-color: rgba(79,70,229,0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+    .kpi-icon {
+        font-size: 1.6rem;
+        margin-bottom: 0.3rem;
     }
     .kpi-value {
-        font-size: 2.2rem;
+        font-size: 2rem;
         font-weight: 800;
         color: #fff;
         margin: 0;
         line-height: 1.1;
+        background: linear-gradient(135deg, #fff, #a5b4fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
     }
     .kpi-label {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: rgba(255,255,255,0.55);
         margin-top: 0.4rem;
-        font-weight: 500;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
     .kpi-desc {
-        font-size: 0.75rem;
-        color: rgba(255,255,255,0.4);
-        margin-top: 0.3rem;
+        font-size: 0.72rem;
+        color: rgba(255,255,255,0.35);
+        margin-top: 0.2rem;
     }
 
     /* Section headers */
     .section-title {
-        font-size: 1.2rem;
+        font-size: 1.15rem;
         font-weight: 700;
-        color: #e2e8f0;
+        color: #fff;
+        margin-bottom: 0.8rem;
+        padding: 0.5rem 1rem;
+        background: linear-gradient(90deg, rgba(79,70,229,0.15), transparent);
+        border-left: 3px solid #4f46e5;
+        border-radius: 0 8px 8px 0;
+        display: block;
+    }
+
+    /* Section container */
+    .section-box {
+        background: linear-gradient(145deg, #141428, #111122);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 16px;
+        padding: 1.2rem;
         margin-bottom: 1rem;
-        padding-bottom: 0.6rem;
-        border-bottom: 2px solid rgba(79, 70, 229, 0.5);
-        display: inline-block;
     }
 
     /* Explication boxes */
@@ -133,33 +157,78 @@ st.markdown("""
 
     /* Insight cards */
     .insight-card {
-        background: linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02));
-        border: 1px solid rgba(34,197,94,0.2);
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border: 1px solid rgba(255,255,255,0.06);
         border-radius: 12px;
         padding: 1rem 1.2rem;
         margin: 0.5rem 0;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.8rem;
+    }
+    .insight-card:hover {
+        border-color: rgba(79,70,229,0.2);
+        transform: translateX(3px);
     }
     .insight-card .icon {
-        font-size: 1.4rem;
-        margin-right: 0.5rem;
+        font-size: 1.6rem;
+        flex-shrink: 0;
     }
     .insight-card .text {
         color: rgba(255,255,255,0.85);
-        font-size: 0.92rem;
+        font-size: 0.9rem;
         line-height: 1.5;
+    }
+    .insight-card strong {
+        color: #fff;
     }
 
     /* Signal badges */
     .signal-badge {
-        display: inline-block;
-        padding: 0.2rem 0.6rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        padding: 0.25rem 0.7rem;
         border-radius: 20px;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-weight: 600;
+        border: 1px solid;
     }
-    .signal-hot { background: rgba(239,68,68,0.2); color: #fca5a5; }
-    .signal-warm { background: rgba(245,158,11,0.2); color: #fcd34d; }
-    .signal-cool { background: rgba(34,197,94,0.2); color: #86efac; }
+    .signal-hot { background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+    .signal-warm { background: rgba(245,158,11,0.12); color: #fcd34d; border-color: rgba(245,158,11,0.3); }
+    .signal-cool { background: rgba(34,197,94,0.12); color: #86efac; border-color: rgba(34,197,94,0.3); }
+
+    /* Polymarket card */
+    .poly-card {
+        background: linear-gradient(145deg, #1a1a2e, #16213e);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 0.8rem;
+        transition: all 0.3s ease;
+    }
+    .poly-card:hover {
+        border-color: rgba(79,70,229,0.25);
+        transform: translateX(3px);
+    }
+    .poly-card .poly-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    .poly-card .poly-topic {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #e2e8f0;
+    }
+    .poly-card .poly-q {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.5);
+        margin-top: 0.3rem;
+        font-style: italic;
+    }
 
     /* Topic labels */
     .topic-label {
@@ -375,6 +444,7 @@ col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.markdown(f"""
     <div class="kpi-card">
+        <div class="kpi-icon">📄</div>
         <p class="kpi-value">{total_articles:,}</p>
         <p class="kpi-label">Articles analysés</p>
         <p class="kpi-desc">Collectés aujourd'hui</p>
@@ -384,6 +454,7 @@ with col1:
 with col2:
     st.markdown(f"""
     <div class="kpi-card">
+        <div class="kpi-icon">📡</div>
         <p class="kpi-value">{n_sources}</p>
         <p class="kpi-label">Sources actives</p>
         <p class="kpi-desc">Médias internationaux</p>
@@ -393,6 +464,7 @@ with col2:
 with col3:
     st.markdown(f"""
     <div class="kpi-card">
+        <div class="kpi-icon">🧠</div>
         <p class="kpi-value">{n_topics}</p>
         <p class="kpi-label">Sujets détectés</p>
         <p class="kpi-desc">Regroupés par IA</p>
@@ -407,6 +479,7 @@ with col4:
             lang_display.append(lang_map.get(code, code))
     st.markdown(f"""
     <div class="kpi-card">
+        <div class="kpi-icon">🌍</div>
         <p class="kpi-value">{', '.join(lang_display) if lang_display else '—'}</p>
         <p class="kpi-label">Langues</p>
         <p class="kpi-desc">{n_langs} langue(s) détectée(s)</p>
@@ -416,6 +489,7 @@ with col4:
 with col5:
     st.markdown(f"""
     <div class="kpi-card">
+        <div class="kpi-icon">✅</div>
         <p class="kpi-value">{quality_ok_pct}%</p>
         <p class="kpi-label">Qualité des données</p>
         <p class="kpi-desc">Articles valides</p>
@@ -575,41 +649,55 @@ with col_right:
             .head(5)
         )
 
+        # Legend
+        st.markdown("""
+        <div style="display:flex; gap:1rem; margin-bottom:1rem; font-size:0.75rem;">
+            <span style="display:flex; align-items:center; gap:0.3rem;"><span style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block;"></span> Forte (≥65%)</span>
+            <span style="display:flex; align-items:center; gap:0.3rem;"><span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;display:inline-block;"></span> Modérée (45-65%)</span>
+            <span style="display:flex; align-items:center; gap:0.3rem;"><span style="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block;"></span> Faible (&lt;45%)</span>
+        </div>
+        """, unsafe_allow_html=True)
+
         for _, row in poly_data.iterrows():
             prob = row["avg_prob"]
-            color = "#22c55e" if prob >= 0.6 else ("#f59e0b" if prob >= 0.4 else "#ef4444")
+            if prob >= 0.65:
+                color = "#ef4444"
+                bar_color = "rgba(239,68,68,0.25)"
+                signal_class = "signal-hot"
+                signal_icon = "🔴"
+            elif prob >= 0.45:
+                color = "#f59e0b"
+                bar_color = "rgba(245,158,11,0.25)"
+                signal_class = "signal-warm"
+                signal_icon = "🟠"
+            else:
+                color = "#22c55e"
+                bar_color = "rgba(34,197,94,0.25)"
+                signal_class = "signal-cool"
+                signal_icon = "🟢"
+
             label_text, _ = interpret_signal(prob)
             readable = clean_topic_label(row["topic_label"])
 
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=round(prob * 100, 1),
-                number={"suffix": "%", "font": {"color": color, "size": 26}},
-                gauge={
-                    "axis": {"range": [0, 100], "tickcolor": "gray"},
-                    "bar": {"color": color},
-                    "bgcolor": "rgba(255,255,255,0.05)",
-                    "steps": [
-                        {"range": [0, 40], "color": "rgba(239,68,68,0.1)"},
-                        {"range": [40, 60], "color": "rgba(245,158,11,0.1)"},
-                        {"range": [60, 100], "color": "rgba(34,197,94,0.1)"},
-                    ],
-                },
-                title={"text": readable[:35], "font": {"size": 11, "color": "lightgray"}},
-            ))
-            fig_gauge.update_layout(
-                height=150, paper_bgcolor="rgba(0,0,0,0)",
-                margin=dict(l=10, r=10, t=30, b=0)
-            )
-            st.plotly_chart(fig_gauge, use_container_width=True)
-            if row["question"]:
-                st.caption(f"🏦 *{str(row['question'])[:90]}...*")
+            st.markdown(f"""
+            <div class="poly-card" style="border-left: 3px solid {color};">
+                <div class="poly-header">
+                    <span class="poly-topic">{readable[:40]}</span>
+                    <span class="signal-badge {signal_class}">{signal_icon} {label_text}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <div style="flex:1;">
+                        <div style="height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden;">
+                            <div style="width:{prob*100}%; height:100%; background:{color}; border-radius:4px; transition:width 0.5s ease;"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:1.2rem; font-weight:800; color:{color}; white-space:nowrap;">{prob*100:.1f}%</div>
+                </div>
+                <div class="poly-q">🏦 {str(row['question'])[:90]}{'...' if len(str(row['question'])) > 90 else ''}</div>
+            </div>
+            """, unsafe_allow_html=True)
     else:
-        st.metric(label="Gaza — Cessez-le-feu ce mois-ci", value="68%", delta="+5pts vs hier",
-                  help="Probabilité estimée par le marché Polymarket")
-        st.metric(label="Économie US — Récession en 2025", value="42%", delta="-3pts vs hier",
-                  help="Probabilité estimée par le marché Polymarket")
-        st.info("💡 Les signaux réels apparaissent après le pipeline complet avec Polymarket activé.")
+        st.info("💡 Les signaux Polymarket apparaissent après exécution du pipeline complet. Lancez : `python run_full_pipeline.py`")
 
 st.markdown("---")
 
