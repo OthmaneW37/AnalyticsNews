@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plateforme Big Data — Presentation</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0f0c29;
+            --bg2: #1a1a2e;
+            --card: #16213e;
+            --card-h: #1c2a4a;
+            --blue: #4f46e5;
+            --cyan: #06b6d4;
+            --green: #22c55e;
+            --amber: #f59e0b;
+            --red: #ef4444;
+            --txt: #e2e8f0;
+            --txt2: #94a3b8;
+            --muted: #64748b;
+            --border: rgba(79,70,229,0.2);
+            --glow-b: rgba(79,70,229,0.15);
+            --glow-c: rgba(6,182,212,0.15);
+            --r: 12px;
+            --rs: 8px;
+        }
+
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--txt);
+            line-height: 1.6;
+        }
+
+        /* ============================================================
+           SLIDES
+           ============================================================ */
+        .slides-wrapper {
+            width: 100%; height: 100%;
+            position: relative;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem 5rem;
+            opacity: 0;
+            transform: translateX(60px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            pointer-events: none;
+            overflow-y: auto;
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: all;
+        }
+
+        .slide.exit-left {
+            opacity: 0;
+            transform: translateX(-60px);
+        }
+
+        .slide-inner {
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        /* ============================================================
+           NAVIGATION
+           ============================================================ */
+        .nav-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 56px;
+            background: rgba(15,12,41,0.95);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--txt);
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn:hover {
+            background: var(--blue);
+            border-color: var(--blue);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.25;
+            cursor: default;
+            background: none;
+            border-color: var(--border);
+        }
+
+        .slide-counter {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .slide-counter .cur { color: var(--cyan); font-size: 1rem; }
+
+        .progress-bar {
+            position: fixed;
+            top: 0; left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--blue), var(--cyan));
+            transition: width 0.4s ease;
+            z-index: 200;
+        }
+
+        .slide-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            opacity: 0.3;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .dot.active {
+            opacity: 1;
+            background: var(--cyan);
+            transform: scale(1.3);
+        }
+
+        /* ============================================================
+           TYPOGRAPHY
+           ============================================================ */
+        .slide-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .slide-title {
+            font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+            font-weight: 900;
+            letter-spacing: -1.5px;
+            margin-bottom: 0.3rem;
+            background: linear-gradient(135deg, #fff, var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .slide-subtitle {
+            color: var(--txt2);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            max-width: 650px;
+        }
+
+        .divider {
+            width: 50px; height: 3px;
+            background: linear-gradient(90deg, var(--blue), var(--cyan));
+            border-radius: 2px;
+            margin-bottom: 1.5rem;
+        }
+
+        .body-text {
+            color: var(--txt2);
+            font-size: 0.92rem;
+            max-width: 750px;
+            margin-bottom: 1.2rem;
+        }
+
+        .highlight { color: var(--cyan); font-weight: 600; }
+
+        /* ============================================================
+           CARDS
+           ============================================================ */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.2rem;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.5rem;
+            transition: 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--blue), var(--cyan));
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .card:hover { border-color: var(--blue); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        .card:hover::before { opacity: 1; }
+
+        .card-icon { font-size: 1.8rem; margin-bottom: 0.8rem; display: block; }
+        .card h3 { font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.4rem; }
+        .card p { color: var(--txt2); font-size: 0.85rem; line-height: 1.55; }
+
+        /* ============================================================
+           TABLES
+           ============================================================ */
+        .tbl-wrap {
+            overflow-x: auto;
+            border-radius: var(--r);
+            border: 1px solid var(--border);
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+
+        thead {
+            background: linear-gradient(135deg, var(--blue), #3730a3);
+            position: sticky; top: 0; z-index: 2;
+        }
+
+        thead th {
+            padding: 0.7rem 1rem; text-align: left; font-weight: 700; color: #fff;
+            font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+        }
+
+        tbody tr { border-bottom: 1px solid var(--border); transition: 0.2s; }
+        tbody tr:hover { background: var(--card-h); }
+
+        tbody td { padding: 0.6rem 1rem; color: var(--txt2); }
+        tbody td:first-child { font-weight: 600; color: var(--txt); white-space: nowrap; }
+
+        .badge {
+            display: inline-block;
+            background: rgba(6,182,212,0.12);
+            color: var(--cyan);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* ============================================================
+           ARCH FLOW
+           ============================================================ */
+        .arch-flow { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 1rem 0; }
+
+        .arch-layer {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 0.9rem 1.8rem;
+            text-align: center;
+            width: 100%;
+            max-width: 700px;
+            transition: 0.3s;
+        }
+
+        .arch-layer:hover { border-color: var(--cyan); box-shadow: 0 0 15px var(--glow-c); }
+        .arch-layer h4 { font-size: 0.95rem; font-weight: 700; color: var(--cyan); margin-bottom: 0.2rem; }
+        .arch-layer p { font-size: 0.8rem; color: var(--txt2); }
+
+        .arch-arrow { font-size: 1.3rem; color: var(--blue); padding: 0.2rem 0; }
+
+        .arch-row { display: flex; gap: 0.8rem; width: 100%; max-width: 700px; justify-content: center; flex-wrap: wrap; }
+        .arch-row .arch-layer { flex: 1; min-width: 180px; }
+
+        /* ============================================================
+           MEDALLION
+           ============================================================ */
+        .medallion {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.2rem;
+            margin: 1rem 0;
+        }
+
+        .med-layer {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .med-layer .lb {
+            display: inline-block;
+            font-size: 0.7rem; font-weight: 700;
+            padding: 0.2rem 0.6rem; border-radius: 50px;
+            margin-bottom: 0.8rem;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .lb-bronze { background: rgba(245,158,11,0.2); color: var(--amber); }
+        .lb-silver { background: rgba(148,163,184,0.2); color: #94a3b8; }
+        .lb-gold { background: rgba(234,179,8,0.2); color: #eab308; }
+
+        .med-layer h3 { font-size: 1.15rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; }
+        .med-layer > p { color: var(--txt2); font-size: 0.85rem; margin-bottom: 0.8rem; }
+        .med-layer ul { list-style: none; padding: 0; }
+        .med-layer ul li {
+            padding: 0.25rem 0; color: var(--txt2); font-size: 0.82rem;
+            display: flex; align-items: flex-start; gap: 0.4rem;
+        }
+        .med-layer ul li::before { content: '\2714'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+
+        /* ============================================================
+           TIMELINE
+           ============================================================ */
+        .timeline { position: relative; padding-left: 2rem; margin: 1rem 0; }
+        .timeline::before {
+            content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--blue), var(--cyan), var(--green));
+        }
+
+        .tl-item {
+            position: relative; margin-bottom: 1rem;
+            padding: 1rem 1.2rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            transition: 0.3s;
+        }
+
+        .tl-item:hover { border-color: var(--blue); transform: translateX(3px); }
+
+        .tl-item::before {
+            content: ''; position: absolute; left: -2rem; top: 1.3rem;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: var(--blue); border: 3px solid var(--bg);
+            box-shadow: 0 0 8px var(--glow-b);
+        }
+
+        .tl-item h4 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
+        .tl-item .tl-tag {
+            display: inline-block; font-size: 0.65rem; font-weight: 600;
+            padding: 0.1rem 0.4rem; border-radius: 4px; margin-bottom: 0.4rem;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .tl-tag.batch { background: rgba(79,70,229,0.2); color: #a5b4fc; }
+        .tl-tag.stream { background: rgba(6,182,212,0.2); color: #67e8f9; }
+        .tl-tag.quality { background: rgba(34,197,94,0.2); color: #86efac; }
+        .tl-tag.storage { background: rgba(245,158,11,0.2); color: #fcd34d; }
+        .tl-item p { color: var(--txt2); font-size: 0.82rem; }
+
+        /* ============================================================
+           COMPARISON
+           ============================================================ */
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin: 1rem 0; }
+
+        .cmp-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.4rem;
+        }
+
+        .cmp-box h4 {
+            font-size: 1rem; font-weight: 700; color: #fff;
+            margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.4rem;
+        }
+
+        .cmp-box ul { list-style: none; padding: 0; }
+        .cmp-box ul li {
+            padding: 0.3rem 0; color: var(--txt2); font-size: 0.82rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .cmp-box ul li:last-child { border-bottom: none; }
+
+        /* ============================================================
+           QUALITY
+           ============================================================ */
+        .q-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .q-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.4rem;
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .q-card:hover { border-color: var(--green); transform: translateY(-3px); }
+        .q-card .qi { font-size: 2rem; margin-bottom: 0.6rem; }
+        .q-card h4 { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 0.3rem; }
+        .q-card > p { color: var(--txt2); font-size: 0.82rem; }
+
+        .flags { margin-top: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; }
+        .flag {
+            background: rgba(239,68,68,0.1); color: #fca5a5;
+            font-size: 0.65rem; font-weight: 600;
+            padding: 0.15rem 0.4rem; border-radius: 4px;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* ============================================================
+           SERVICES
+           ============================================================ */
+        .svc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .svc-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.2rem;
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .svc-card:hover { border-color: var(--cyan); transform: translateY(-3px); }
+        .svc-card .si { font-size: 1.8rem; margin-bottom: 0.5rem; }
+        .svc-card h4 { font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
+        .svc-card .sp { font-size: 0.72rem; color: var(--cyan); font-family: 'Consolas', monospace; margin-bottom: 0.3rem; }
+        .svc-card p { font-size: 0.78rem; color: var(--muted); }
+
+        /* ============================================================
+           DELIVERABLES
+           ============================================================ */
+        .dl-list { display: grid; gap: 0.8rem; margin: 1rem 0; }
+
+        .dl-item {
+            display: flex; align-items: flex-start; gap: 0.8rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1rem 1.2rem;
+            transition: 0.3s;
+        }
+
+        .dl-item:hover { border-color: var(--blue); transform: translateX(3px); }
+        .dl-item .di { font-size: 1.3rem; flex-shrink: 0; margin-top: 0.1rem; }
+        .dl-item h4 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.15rem; }
+        .dl-item p { font-size: 0.82rem; color: var(--txt2); }
+
+        /* ============================================================
+           STATS
+           ============================================================ */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            padding: 1.2rem;
+            text-align: center;
+        }
+
+        .stat .sn {
+            font-size: 2.2rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--green), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat .sl { font-size: 0.8rem; color: var(--txt2); margin-top: 0.2rem; }
+
+        /* ============================================================
+           CODE
+           ============================================================ */
+        .code {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: var(--rs);
+            padding: 0.8rem 1.2rem;
+            font-family: 'Consolas', monospace;
+            font-size: 0.78rem;
+            color: #c9d1d9;
+            overflow-x: auto;
+            margin: 0.8rem 0;
+            line-height: 1.7;
+        }
+
+        .code .cmd { color: #7ee787; }
+        .code .flag { color: #d2a8ff; }
+        .code .cmt { color: #6e7681; }
+
+        /* ============================================================
+           NOTE
+           ============================================================ */
+        .note {
+            background: rgba(245,158,11,0.08);
+            border: 1px solid rgba(245,158,11,0.2);
+            border-radius: var(--rs);
+            padding: 0.8rem 1.2rem;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+            color: #fcd34d;
+        }
+
+        .note strong { color: var(--amber); }
+
+        /* ============================================================
+           HERO SPECIFIC
+           ============================================================ */
+        .hero-slide {
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-slide::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background:
+                radial-gradient(ellipse at 30% 50%, var(--glow-b) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 50%, var(--glow-c) 0%, transparent 50%);
+            animation: hGlow 8s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        @keyframes hGlow {
+            0% { transform: translate(0,0) scale(1); }
+            100% { transform: translate(-2%,2%) scale(1.05); }
+        }
+
+        .hero-slide .slide-inner { position: relative; z-index: 1; }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(79,70,229,0.15);
+            border: 1px solid var(--border);
+            color: var(--cyan);
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            margin-bottom: 1.2rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .hero-slide .slide-title {
+            font-size: clamp(2rem, 4.5vw, 3.2rem);
+            margin-bottom: 0.8rem;
+        }
+
+        .hero-slide .slide-subtitle {
+            margin: 0 auto 2rem;
+            font-size: 1.05rem;
+        }
+
+        .hero-meta {
+            display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;
+        }
+
+        .hero-meta-item {
+            display: flex; align-items: center; gap: 0.4rem;
+            color: var(--muted); font-size: 0.85rem;
+        }
+
+        .hero-meta-item span:first-child { font-size: 1.1rem; }
+
+        .start-hint {
+            margin-top: 2rem;
+            color: var(--muted);
+            font-size: 0.8rem;
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
+        @media (max-width: 768px) {
+            .slide { padding: 2rem 1.5rem 4rem; }
+            .comparison { grid-template-columns: 1fr; }
+            .arch-row { flex-direction: column; align-items: center; }
+            .nav-bar { padding: 0 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progress"></div>
+
+<div class="slides-wrapper">
+
+    <!-- ==================== SLIDE 0: HERO ==================== -->
+    <div class="slide active hero-slide" data-index="0">
+        <div class="slide-inner">
+            <span class="hero-badge">Projet Big Data &middot; Architecture de Donnees</span>
+            <h1 class="slide-title">Plateforme Big Data d'Analyse<br>des Tendances Mediatiques</h1>
+            <p class="slide-subtitle">Collecte, traitement et analyse d'articles de presse multilingues — du scraping web aux dashboards interactifs, en passant par un pipeline de donnees distribue.</p>
+            <div class="hero-meta">
+                <div class="hero-meta-item"><span>📅</span> 2025-2026</div>
+                <div class="hero-meta-item"><span>🏗️</span> 4 phases realisees</div>
+                <div class="hero-meta-item"><span>🌍</span> 9 sources internationales</div>
+                <div class="hero-meta-item"><span>✅</span> 113 tests unitaires</div>
+            </div>
+            <div class="start-hint">Appuyez sur → ou cliquez pour commencer</div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 1: CONTEXTE ==================== -->
+    <div class="slide" data-index="1">
+        <div class="slide-inner">
+            <span class="slide-icon">🎯</span>
+            <h2 class="slide-title">Contexte &amp; Problematique</h2>
+            <div class="divider"></div>
+            <p class="body-text">
+                Dans un monde ou l'information circule a une vitesse sans precedent, il est crucial de pouvoir
+                <span class="highlight">collecter, organiser et analyser</span> les articles de presse provenant de multiples sources
+                pour identifier les tendances mediatiques et detecter les signaux faibles.
+            </p>
+            <div class="card-grid">
+                <div class="card">
+                    <span class="card-icon">📈</span>
+                    <h3>Identifier les tendances</h3>
+                    <p>Detecter automatiquement les sujets emergents en regroupant les articles par similarite semantique (BERTopic).</p>
+                </div>
+                <div class="card">
+                    <span class="card-icon">🧠</span>
+                    <h3>Themes dominants</h3>
+                    <p>Comprendre les themes qui dominent le paysage mediatique, par source, pays et langue.</p>
+                </div>
+                <div class="card">
+                    <span class="card-icon">⚡</span>
+                    <h3>Temps reel</h3>
+                    <p>Architecture streaming avec Kafka pour traiter les articles des leur publication.</p>
+                </div>
+                <div class="card">
+                    <span class="card-icon">🛡️</span>
+                    <h3>Qualite &amp; Fiabilite</h3>
+                    <p>Controle automatique sur 3 dimensions : completude, coherence, validite.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 2: ARCHITECTURE ==================== -->
+    <div class="slide" data-index="2">
+        <div class="slide-inner">
+            <span class="slide-icon">🏗️</span>
+            <h2 class="slide-title">Architecture Globale</h2>
+            <div class="divider"></div>
+            <p class="body-text">Architecture en couches, de la collecte brute jusqu'a la visualisation, avec un pipeline distribue conteneurise.</p>
+            <div class="arch-flow">
+                <div class="arch-layer">
+                    <h4>📡 SOURCES</h4>
+                    <p>Hespress, Akhbarona, Lakom, Barlamane, BBC, Al Jazeera, CNN, Reuters, GDELT v2</p>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer">
+                    <h4>🔄 INGESTION</h4>
+                    <p>Batch (Airflow DAGs) + Streaming (Kafka Producer/Consumer)</p>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-row">
+                    <div class="arch-layer">
+                        <h4>🟤 BRONZE</h4>
+                        <p>JSON brut — MinIO / Local</p>
+                    </div>
+                    <div class="arch-layer">
+                        <h4>⚪ SILVER</h4>
+                        <p>Parquet nettoye — Qualite OK</p>
+                    </div>
+                    <div class="arch-layer">
+                        <h4>🟡 GOLD</h4>
+                        <p>Enrichi — BERTopic + Polymarket</p>
+                    </div>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer">
+                    <h4>🗄️ DATA WAREHOUSE</h4>
+                    <p>DuckDB — Tables analytiques + Vues SQL</p>
+                </div>
+                <div class="arch-arrow">▼</div>
+                <div class="arch-layer">
+                    <h4>📊 VISUALISATION</h4>
+                    <p>Dashboard Streamlit + Plotly — KPIs, graphiques, table interactive</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 3: TECHNOLOGIES ==================== -->
+    <div class="slide" data-index="3">
+        <div class="slide-inner">
+            <span class="slide-icon">⚙️</span>
+            <h2 class="slide-title">Choix Technologiques</h2>
+            <div class="divider"></div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr><th>Composant</th><th>Technologie</th><th>Justification</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>🔍 Scraping</td><td><span class="badge">Python + BS4 + feedparser</span></td><td>Flexible, leger, supporte RSS et HTML. 9 scrapers.</td></tr>
+                        <tr><td>📡 Streaming</td><td><span class="badge">Apache Kafka (KRaft)</span></td><td>Broker distribue, haute dispo, sans ZooKeeper.</td></tr>
+                        <tr><td>📦 Data Lake</td><td><span class="badge">MinIO (S3-compatible)</span></td><td>Stockage objet open-source, conteneurisable.</td></tr>
+                        <tr><td>⚙️ Traitement</td><td><span class="badge">Pandas + PyArrow</span></td><td>Nettoyage, transformation, Parquet colonnaire.</td></tr>
+                        <tr><td>🎯 Topic Modeling</td><td><span class="badge">BERTopic + sentence-transformers</span></td><td>Clustering semantique multilingue (FR, EN, AR).</td></tr>
+                        <tr><td>📋 Orchestration</td><td><span class="badge">Apache Airflow</span></td><td>Planification, supervision, DAGs visuels, retry.</td></tr>
+                        <tr><td>🗄️ Data Warehouse</td><td><span class="badge">DuckDB</span></td><td>Base analytique embarquee, performances OLAP.</td></tr>
+                        <tr><td>📊 Visualisation</td><td><span class="badge">Streamlit + Plotly</span></td><td>Dashboard interactif Python, zero frontend.</td></tr>
+                        <tr><td>🐳 Deploiement</td><td><span class="badge">Docker Compose</span></td><td>6 services conteneurises, reseau isole.</td></tr>
+                        <tr><td>🧪 Tests</td><td><span class="badge">pytest</span></td><td>113 tests unitaires, couverture complete.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 4: MEDAILLON ==================== -->
+    <div class="slide" data-index="4">
+        <div class="slide-inner">
+            <span class="slide-icon">🏅</span>
+            <h2 class="slide-title">Architecture Medaillon</h2>
+            <div class="divider"></div>
+            <p class="body-text">Le Data Lake suit le modele Medaillon en 3 couches progressives : chaque couche affine la qualite et la valeur des donnees.</p>
+            <div class="medallion">
+                <div class="med-layer">
+                    <span class="lb lb-bronze">Couche 1</span>
+                    <h3>🟤 Bronze — Donnees brutes</h3>
+                    <p>Donnees telles qu'elles sortent des scrapers, sans transformation.</p>
+                    <ul>
+                        <li>Format JSON partitionne par source/date</li>
+                        <li>Stockage local ou MinIO (s3://bronze)</li>
+                        <li>Champs : titre, url, source, langue, date, contenu, pays</li>
+                        <li>Aucun controle qualite</li>
+                        <li>Retention : 90 jours</li>
+                    </ul>
+                </div>
+                <div class="med-layer">
+                    <span class="lb lb-silver">Couche 2</span>
+                    <h3>⚪ Silver — Donnees nettoyees</h3>
+                    <p>Nettoyees, normalisees et validees, pretes pour l'analyse.</p>
+                    <ul>
+                        <li>Format Parquet + JSON</li>
+                        <li>Suppression HTML, URLs, caracteres de controle</li>
+                        <li>Normalisation des champs</li>
+                        <li>Detection automatique de la langue</li>
+                        <li>Deduplication par article_id</li>
+                        <li>Controle qualite 3 dimensions</li>
+                    </ul>
+                </div>
+                <div class="med-layer">
+                    <span class="lb lb-gold">Couche 3</span>
+                    <h3>🟡 Gold — Donnees enrichies</h3>
+                    <p>Agregees et enrichies avec IA et signaux de marche.</p>
+                    <ul>
+                        <li>Topic modeling BERTopic (multilingue)</li>
+                        <li>Signaux Polymarket (marches predictifs)</li>
+                        <li>Score de couverture par topic</li>
+                        <li>Signal combine (probabilite x pertinence)</li>
+                        <li>Tables analytiques : jour, theme, pays, source</li>
+                        <li>Alimentation du Data Warehouse DuckDB</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 5: PIPELINE ==================== -->
+    <div class="slide" data-index="5">
+        <div class="slide-inner">
+            <span class="slide-icon">🔄</span>
+            <h2 class="slide-title">Pipeline de Donnees</h2>
+            <div class="divider"></div>
+            <div class="comparison">
+                <div class="cmp-box">
+                    <h4>📦 Mode Batch</h4>
+                    <ul>
+                        <li>🕐 Scraping programme toutes les heures</li>
+                        <li>🛠️ Orchestre par Apache Airflow (DAGs)</li>
+                        <li>📊 Traitement complet Bronze → Silver → Gold</li>
+                        <li>🗄️ Alimentation du Data Warehouse</li>
+                        <li>📋 CLI : <code>run_full_pipeline.py</code></li>
+                        <li>⚡ Fallback sans Docker possible</li>
+                    </ul>
+                </div>
+                <div class="cmp-box">
+                    <h4>⚡ Mode Streaming</h4>
+                    <ul>
+                        <li>📡 Evenements Kafka en temps reel</li>
+                        <li>🔄 Consumer traite chaque article immediatement</li>
+                        <li>📦 Topic <code>news_events</code></li>
+                        <li>📊 Ingestion Silver en continu</li>
+                        <li>🐳 Broker Kafka KRaft (sans ZooKeeper)</li>
+                        <li>🌐 Port 9092 expose</li>
+                    </ul>
+                </div>
+            </div>
+            <h3 style="color:#fff; font-size:1.1rem; margin:1.5rem 0 0.8rem;">📋 Etapes ETL</h3>
+            <div class="timeline">
+                <div class="tl-item"><span class="tl-tag storage">Stockage</span><h4>1. Scraping &amp; Bronze</h4><p>Collecte RSS/HTML → JSON partitionne par source/date.</p></div>
+                <div class="tl-item"><span class="tl-tag stream">Streaming</span><h4>2. Evenement Kafka</h4><p>Emision d'evenements vers le topic <code>news_events</code>.</p></div>
+                <div class="tl-item"><span class="tl-tag quality">Qualite</span><h4>3. Silver — Nettoyage</h4><p>Nettoyage HTML, langdetect, deduplication, controle qualite.</p></div>
+                <div class="tl-item"><span class="tl-tag batch">Enrichissement</span><h4>4. Gold — BERTopic + Polymarket</h4><p>Topic modeling IA + signaux marches predictifs.</p></div>
+                <div class="tl-item"><span class="tl-tag batch">Analyse</span><h4>5. Data Warehouse</h4><p>Insertion DuckDB + tables analytiques + vues SQL.</p></div>
+                <div class="tl-item"><span class="tl-tag stream">Visualisation</span><h4>6. Dashboard Streamlit</h4><p>KPIs, graphiques de topics, signaux, table interactive.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 6: QUALITE ==================== -->
+    <div class="slide" data-index="6">
+        <div class="slide-inner">
+            <span class="slide-icon">🛡️</span>
+            <h2 class="slide-title">Qualite &amp; Gouvernance</h2>
+            <div class="divider"></div>
+            <p class="body-text">Chaque article passe par un controle qualite automatique sur trois dimensions avant d'etre considere comme valide.</p>
+            <div class="q-grid">
+                <div class="q-card">
+                    <div class="qi">📋</div>
+                    <h4>Completude</h4>
+                    <p>Tous les champs obligatoires doivent etre presents.</p>
+                    <div class="flags">
+                        <span class="flag">TITRE_VIDE_OU_TROP_COURT</span>
+                        <span class="flag">CONTENU_TROP_COURT</span>
+                        <span class="flag">URL_MANQUANTE</span>
+                        <span class="flag">DATE_MANQUANTE</span>
+                    </div>
+                </div>
+                <div class="q-card">
+                    <div class="qi">🔗</div>
+                    <h4>Cohérence</h4>
+                    <p>La langue declaree = langue detectee automatiquement.</p>
+                    <div class="flags">
+                        <span class="flag">LANGUE_INCOHERENTE</span>
+                    </div>
+                </div>
+                <div class="q-card">
+                    <div class="qi">✅</div>
+                    <h4>Validite</h4>
+                    <p>URLs bien formees et dates parsables.</p>
+                    <div class="flags">
+                        <span class="flag">URL_INVALIDE</span>
+                    </div>
+                </div>
+            </div>
+            <h3 style="color:#fff; font-size:1.1rem; margin:1.5rem 0 0.5rem;">📊 Data Lineage (Tracabilite)</h3>
+            <p class="body-text">Chaque execution produit des metadonnees dans la table <code>ingestion_stats</code> du Data Warehouse.</p>
+            <div class="code">
+                <span class="cmt">// Metadonnees de pipeline</span><br>
+                {<br>
+                &nbsp;&nbsp;<span class="cmd">"run_date"</span>: <span class="flag">"2025-04-26"</span>,<br>
+                &nbsp;&nbsp;<span class="cmd">"source"</span>: <span class="flag">"bbc"</span>,<br>
+                &nbsp;&nbsp;<span class="cmd">"articles_scraped"</span>: <span class="flag">25</span>,<br>
+                &nbsp;&nbsp;<span class="cmd">"quality_ok"</span>: <span class="flag">23</span>, &nbsp; <span class="cmd">"quality_fail"</span>: <span class="flag">2</span>,<br>
+                &nbsp;&nbsp;<span class="cmd">"elapsed_seconds"</span>: <span class="flag">45.2</span><br>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 7: TESTS ==================== -->
+    <div class="slide" data-index="7">
+        <div class="slide-inner">
+            <span class="slide-icon">🧪</span>
+            <h2 class="slide-title">Tests Unitaires</h2>
+            <div class="divider"></div>
+            <p class="body-text">Suite de <span class="highlight">113 tests unitaires</span> couvrant l'ensemble des composants critiques du pipeline, executes avec <strong>pytest</strong>.</p>
+            <div class="stats">
+                <div class="stat"><div class="sn">113</div><div class="sl">Tests totaux</div></div>
+                <div class="stat"><div class="sn" style="background:linear-gradient(135deg,#22c55e,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">100%</div><div class="sl">Taux de reussite</div></div>
+                <div class="stat"><div class="sn">6</div><div class="sl">Modules testes</div></div>
+                <div class="stat"><div class="sn">&lt;10s</div><div class="sl">Duree execution</div></div>
+            </div>
+            <div class="tbl-wrap" style="max-height:40vh;">
+                <table>
+                    <thead><tr><th>Module</th><th>Fichier</th><th>Tests</th><th>Couverture</th></tr></thead>
+                    <tbody>
+                        <tr><td>📰 Article &amp; Scraper</td><td><span class="badge">test_article.py</span></td><td>12</td><td>Creation, ID, to_dict(), BaseScraper</td></tr>
+                        <tr><td>🟤 Bronze Writer</td><td><span class="badge">test_bronze_writer.py</span></td><td>13</td><td>Ecriture JSON, partition, lecture</td></tr>
+                        <tr><td>⚪ Silver Processor</td><td><span class="badge">test_silver_processor.py</span></td><td>45</td><td>Clean text, URL, langdetect, process, save/load</td></tr>
+                        <tr><td>🟡 Gold Aggregator</td><td><span class="badge">test_gold_aggregator.py</span></td><td>24</td><td>Polymarket, build_gold, topic_summary</td></tr>
+                        <tr><td>🗄️ DuckDB Manager</td><td><span class="badge">test_duckdb_manager.py</span></td><td>19</td><td>Init, insert, refresh analytics, vues SQL</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="code">
+                <span class="cmd">python -m pytest</span> <span class="flag">tests/ -v</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 8: DEPLOIEMENT ==================== -->
+    <div class="slide" data-index="8">
+        <div class="slide-inner">
+            <span class="slide-icon">🐳</span>
+            <h2 class="slide-title">Deploiement</h2>
+            <div class="divider"></div>
+            <p class="body-text">Toute la plateforme est conteneurisee avec <span class="highlight">Docker Compose</span>. Un seul commande suffit.</p>
+            <div class="code">
+                <span class="cmd">docker-compose up -d</span>
+            </div>
+            <div class="svc-grid">
+                <div class="svc-card"><div class="si">🪣</div><h4>MinIO</h4><div class="sp">9000 / 9001</div><p>Data Lake S3-compatible</p></div>
+                <div class="svc-card"><div class="si">📡</div><h4>Kafka</h4><div class="sp">9092</div><p>Broker KRaft</p></div>
+                <div class="svc-card"><div class="si">🐘</div><h4>PostgreSQL</h4><div class="sp">5432</div><p>Metadonnees Airflow</p></div>
+                <div class="svc-card"><div class="si">🔄</div><h4>Airflow Web</h4><div class="sp">8080</div><p>Supervision DAGs</p></div>
+                <div class="svc-card"><div class="si">⏰</div><h4>Airflow Scheduler</h4><div class="sp">Interne</div><p>Planification batch</p></div>
+                <div class="svc-card"><div class="si">📊</div><h4>Dashboard</h4><div class="sp">8501</div><p>Streamlit</p></div>
+            </div>
+            <div class="note">
+                <strong>💡 Mode local :</strong> Tout fonctionne sans Docker. Pipeline : <code>run_full_pipeline.py</code> | Dashboard : <code>streamlit run dashboard/app.py</code>
+            </div>
+            <h3 style="color:#fff; font-size:1.1rem; margin:1.2rem 0 0.5rem;">☸️ Kubernetes (Optionnel)</h3>
+            <div class="card-grid" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="card"><span class="card-icon">📦</span><h3>Helm Charts</h3><p>Deployement independant par service.</p></div>
+                <div class="card"><span class="card-icon">📈</span><h3>Auto-scaling</h3><p>HPA selon la charge CPU/RAM.</p></div>
+                <div class="card"><span class="card-icon">📊</span><h3>Monitoring</h3><p>Prometheus + Grafana.</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 9: LIVRABLES ==================== -->
+    <div class="slide" data-index="9">
+        <div class="slide-inner">
+            <span class="slide-icon">📋</span>
+            <h2 class="slide-title">Livrables</h2>
+            <div class="divider"></div>
+            <p class="body-text">L'ensemble des livrables attendus a ete produit et documente.</p>
+            <div class="dl-list">
+                <div class="dl-item"><span class="di">📄</span><div><h4>Presentation detaillee</h4><p>README.md, ARCHITECTURE.md, GOVERNANCE.md — documentation complete.</p></div></div>
+                <div class="dl-item"><span class="di">🏗️</span><div><h4>Schema d'architecture</h4><p>Diagramme detaille des couches avec flux de donnees.</p></div></div>
+                <div class="dl-item"><span class="di">💻</span><div><h4>Code source versionne</h4><p>Repository Git — 9 scrapers, pipeline complet, dashboard.</p></div></div>
+                <div class="dl-item"><span class="di">🐳</span><div><h4>Fichiers de deploiement</h4><p>docker-compose.yml avec 6 services conteneurises.</p></div></div>
+                <div class="dl-item"><span class="di">📚</span><div><h4>Documentation technique</h4><p>Catalog des donnees, lineage, controle qualite, retention.</p></div></div>
+                <div class="dl-item"><span class="di">📊</span><div><h4>Dashboard de visualisation</h4><p>Streamlit — KPIs, topics, Polymarket, table interactive.</p></div></div>
+                <div class="dl-item"><span class="di">🧪</span><div><h4>Suite de tests unitaires</h4><p>113 tests pytest couvrant tous les composants critiques.</p></div></div>
+                <div class="dl-item"><span class="di">▶️</span><div><h4>Demonstration fonctionnelle</h4><p>test_phase1.py et run_full_pipeline.py pour validation locale.</p></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SLIDE 10: FIN ==================== -->
+    <div class="slide hero-slide" data-index="10">
+        <div class="slide-inner">
+            <span class="hero-badge">Merci</span>
+            <h1 class="slide-title">Questions &amp; Discussions</h1>
+            <p class="slide-subtitle">Plateforme Big Data d'Analyse des Tendances Mediatiques</p>
+            <div class="hero-meta">
+                <div class="hero-meta-item"><span>🏗️</span> 4 phases realisees</div>
+                <div class="hero-meta-item"><span>🌍</span> 9 sources</div>
+                <div class="hero-meta-item"><span>🐳</span> Docker Compose</div>
+                <div class="hero-meta-item"><span>🧪</span> 113 tests</div>
+            </div>
+            <div style="margin-top:2rem;">
+                <div class="code" style="display:inline-block; text-align:left;">
+                    <span class="cmt"># Lancer le pipeline</span><br>
+                    <span class="cmd">python -X utf8</span> <span class="flag">run_full_pipeline.py --source bbc hespress</span><br><br>
+                    <span class="cmt"># Lancer le dashboard</span><br>
+                    <span class="cmd">streamlit run</span> <span class="flag">dashboard/app.py</span><br><br>
+                    <span class="cmt"># Lancer les tests</span><br>
+                    <span class="cmd">python -m pytest</span> <span class="flag">tests/ -v</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- NAV BAR -->
+<div class="nav-bar">
+    <button class="nav-btn" id="prevBtn" onclick="go(-1)" disabled>←</button>
+    <div class="slide-dots" id="dots"></div>
+    <div class="slide-counter">
+        <span class="cur" id="curNum">1</span> / <span id="totalNum">11</span>
+    </div>
+    <button class="nav-btn" id="nextBtn" onclick="go(1)">→</button>
+</div>
+
+<script>
+    const slides = document.querySelectorAll('.slide');
+    const total = slides.length;
+    let current = 0;
+
+    // Build dots
+    const dotsContainer = document.getElementById('dots');
+    for (let i = 0; i < total; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        dot.onclick = () => goTo(i);
+        dotsContainer.appendChild(dot);
+    }
+
+    function updateUI() {
+        document.getElementById('curNum').textContent = current + 1;
+        document.getElementById('totalNum').textContent = total;
+        document.getElementById('prevBtn').disabled = current === 0;
+        document.getElementById('nextBtn').disabled = current === total - 1;
+        document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+
+        document.querySelectorAll('.dot').forEach((d, i) => {
+            d.classList.toggle('active', i === current);
+        });
+    }
+
+    function goTo(index) {
+        if (index === current || index < 0 || index >= total) return;
+        const dir = index > current ? 1 : -1;
+
+        slides[current].classList.remove('active');
+        slides[current].classList.add(dir > 0 ? 'exit-left' : '');
+        slides[current].style.transform = dir > 0 ? 'translateX(-60px)' : 'translateX(60px)';
+
+        const prev = current;
+        current = index;
+
+        slides[prev].classList.remove('exit-left');
+        slides[prev].style.transform = '';
+
+        slides[current].classList.add('active');
+        slides[current].style.transform = '';
+
+        updateUI();
+    }
+
+    function go(dir) {
+        goTo(current + dir);
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+            e.preventDefault();
+            go(1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            go(-1);
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            goTo(0);
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            goTo(total - 1);
+        } else if (e.key === 'f' || e.key === 'F') {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    });
+
+    // Click to advance (on empty areas)
+    document.querySelector('.slides-wrapper').addEventListener('click', (e) => {
+        if (e.target.closest('.nav-bar') || e.target.closest('.card') || e.target.closest('.med-layer') || e.target.closest('.tl-item') || e.target.closest('.q-card') || e.target.closest('.svc-card') || e.target.closest('.dl-item') || e.target.closest('.stat') || e.target.closest('.cmp-box') || e.target.closest('.arch-layer') || e.target.closest('.dot')) return;
+        const x = e.clientX;
+        if (x > window.innerWidth / 2) go(1);
+        else go(-1);
+    });
+
+    // Touch swipe
+    let touchStartX = 0;
+    document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+    document.addEventListener('touchend', (e) => {
+        const diff = touchStartX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50) go(diff > 0 ? 1 : -1);
+    });
+
+    updateUI();
+</script>
+
+</body>
+</html>
