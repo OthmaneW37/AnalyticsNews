@@ -140,4 +140,26 @@ Flags possibles : `TITRE_VIDE_OU_TROP_COURT`, `CONTENU_TROP_COURT`, `URL_MANQUAN
 
 - **Local** : Tout fonctionne sans Docker (DuckDB en local, fichiers JSON/Parquet).
 - **Docker** : `docker-compose up -d` démarre MinIO, Kafka, Airflow, PostgreSQL, Dashboard React (via FastAPI).
-- **Kubernetes** : Les services sont isolés et stateless (volumes pour la persistance).
+- **Kubernetes** : `kubectl apply -k k8s/` déploie l'ensemble des services avec StatefulSets, PersistentVolumeClaims, Ingress.
+
+### Kubernetes (manifests dans `k8s/`)
+
+```bash
+# Build de l'image Docker
+docker build -t news-pipeline-api:latest .
+
+# Déploiement complet
+kubectl apply -k k8s/
+
+# Vérification
+kubectl get pods -n news-pipeline
+kubectl get svc -n news-pipeline
+```
+
+Services K8s :
+- `minio` — StatefulSet 1 replica, PVC 20Gi, ports 9000/9001
+- `kafka` — StatefulSet 1 replica (KRaft), PVC 10Gi, port 9092
+- `postgres` — StatefulSet 1 replica, PVC 10Gi, port 5432
+- `airflow-webserver` — Deployment 1 replica, port 8080
+- `airflow-scheduler` — Deployment 1 replica
+- `dashboard-api` — Deployment 1 replica, PVC data + HF cache, Ingress sur `news-pipeline.local`

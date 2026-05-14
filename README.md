@@ -138,6 +138,37 @@ Services démarrés :
 
 ---
 
+## Phase 3 : Déploiement Kubernetes
+
+```bash
+# 1. Build de l'image Docker
+docker build -t news-pipeline-api:latest .
+
+# 2. Déploiement (tous les services)
+kubectl apply -k k8s/
+
+# 3. Vérification
+kubectl get pods -n news-pipeline
+kubectl get svc -n news-pipeline
+
+# 4. Accès Dashboard (port-forward si pas d'Ingress Controller)
+kubectl port-forward -n news-pipeline svc/dashboard-api 8000:8000
+```
+
+Manifestes K8s dans `k8s/` :
+| Fichier | Services |
+|---------|----------|
+| `namespace.yaml` | Namespace `news-pipeline` |
+| `configmap.yaml` | Configuration partagée (MinIO, Kafka, Airflow, Postgres) |
+| `minio.yaml` | MinIO StatefulSet + Service + Job init buckets |
+| `kafka.yaml` | Kafka KRaft StatefulSet + Service |
+| `postgres.yaml` | PostgreSQL StatefulSet + Service |
+| `airflow.yaml` | Airflow webserver + scheduler + DAG ConfigMap |
+| `api.yaml` | Dashboard API Deployment + PVCs + Ingress |
+| `kustomization.yaml` | Kustomize `kubectl apply -k k8s/` |
+
+---
+
 ## Architecture des couches
 
 | Couche | Format | Description |
@@ -249,10 +280,10 @@ Le frontend en dev se connecte à l'API sur `http://localhost:8000`.
 
 ## Livrables
 
-- [x] Présentation détaillée du projet (README + ARCHITECTURE.md)
+- [x] Présentation détaillée du projet (README + ARCHITECTURE.md + cahierdecharge.md)
 - [x] Schéma d'architecture (ARCHITECTURE.md)
 - [x] Code source versionné sur Git
-- [x] Fichiers de déploiement (docker-compose.yml)
+- [x] Fichiers de déploiement (docker-compose.yml + Dockerfile + k8s/)
 - [x] Documentation technique (README, ARCHITECTURE.md, GOVERNANCE.md)
 - [x] Dashboard Next.js professionnel (frontend/)
 - [x] Démonstration fonctionnelle du pipeline (test_phase1.py, run_full_pipeline.py)

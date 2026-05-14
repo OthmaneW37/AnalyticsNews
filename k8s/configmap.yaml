@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: news-pipeline-config
+  namespace: news-pipeline
+data:
+  MINIO_ENDPOINT: "minio.news-pipeline.svc.cluster.local:9000"
+  MINIO_ACCESS_KEY: "admin"
+  MINIO_SECRET_KEY: "password"
+  MINIO_SECURE: "false"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.news-pipeline.svc.cluster.local:9092"
+  WAREHOUSE_PATH: "/app/data/warehouse/news_warehouse.duckdb"
+  PYTHONUNBUFFERED: "1"
+  AIRFLOW__CORE__EXECUTOR: "LocalExecutor"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres.news-pipeline.svc.cluster.local:5432/airflow"
+  POSTGRES_USER: "airflow"
+  POSTGRES_PASSWORD: "airflow"
+  POSTGRES_DB: "airflow"

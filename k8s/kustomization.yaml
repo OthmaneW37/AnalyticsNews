@@ -1,0 +1,17 @@
+# Kustomization pour le déploiement Kubernetes
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: news-pipeline
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - minio.yaml
+  - kafka.yaml
+  - postgres.yaml
+  - airflow.yaml
+  - api.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: news-pipeline
+  app.kubernetes.io/managed-by: kustomize
