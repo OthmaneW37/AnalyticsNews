@@ -61,7 +61,7 @@ def main(
         gdelt_timespan=gdelt_timespan,
         gdelt_lang=gdelt_lang,
         max_per_feed=max_per_feed,
-        fetch_content=False,
+        fetch_content=True,
         use_minio=False,
         use_kafka=False,
     )
@@ -111,14 +111,14 @@ def main(
     print(f"   [OK] {len(topic_summaries)} topics resumes | {enriched} signaux Polymarket\n")
 
     # --------------------------------------------------------
-    # PHASE 4 : Instructions Dashboard
+    # PHASE 4 : API Server
     # --------------------------------------------------------
-    print(">>> PHASE 4 : Dashboard Streamlit")
-    print("   Pour lancer le dashboard, executez :")
+    print(">>> PHASE 4 : API Server")
+    print("   Pour lancer l'API, executez :")
     print("   +-----------------------------------------------+")
-    print("   |  streamlit run dashboard/app.py               |")
+    print("   |  python -m uvicorn api_server:app --reload    |")
     print("   +-----------------------------------------------+")
-    print("   (Installez d'abord : pip install streamlit plotly)\n")
+    print("   Puis ouvrez http://localhost:8000/docs\n")
 
     # --------------------------------------------------------
     # RESUME FINAL

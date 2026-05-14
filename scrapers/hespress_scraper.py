@@ -115,8 +115,10 @@ class HespressScraper(BaseScraper):
             categories = [t.get("term", "") for t in entry.get("tags", [])]
             categorie = categories[0] if categories else ""
 
-            # Détection simple FR vs AR basée sur les caractères du titre
-            langue = "ar" if re.search(r'[\u0600-\u06FF]', titre) else "fr"
+            # On ne garde que les articles en français (skip arabe)
+            if re.search(r'[\u0600-\u06FF]', titre):
+                self.logger.debug(f"Article arabe ignoré : {titre[:40]}...")
+                continue
 
             article = Article(
                 titre=titre,
@@ -185,19 +187,13 @@ class HespressScraper(BaseScraper):
         Exemple : 'Sat, 26 Apr 2025 10:00:00 +0000' → '2025-04-26T10:00:00'
         """
         if not raw:
-            return datetime.utcnow().isoformat()
-        formats = [
-            "%a, %d %b %Y %H:%M:%S %z",
-            "%a, %d %b %Y %H:%M:%S %Z",
-            "%Y-%m-%dT%H:%M:%S%z",
-        ]
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(raw, fmt)
-                return dt.strftime("%Y-%m-%dT%H:%M:%S")
-            except ValueError:
-                continue
-        return raw  # retourne brut si parsing échoue
+            return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            from email.utils import parsedate_to_datetime
+            dt = parsedate_to_datetime(raw)
+            return dt.strftime("%Y-%m-%dT%H:%M:%S")
+        except Exception:
+            return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
 
 
 # Alias rétrocompatible

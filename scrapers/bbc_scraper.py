@@ -105,7 +105,7 @@ class BBCScraper(BaseScraper):
             seen_urls.add(url)
 
             titre = entry.get("title", "").strip()
-            date_raw = entry.get("published", "")
+            date_raw = entry.get("published") or entry.get("updated") or ""
             date_pub = self._normalize_date(date_raw)
             summary = BeautifulSoup(
                 entry.get("summary", ""), "html.parser"
@@ -179,16 +179,10 @@ class BBCScraper(BaseScraper):
     @staticmethod
     def _normalize_date(raw: str) -> str:
         if not raw:
-            return datetime.utcnow().isoformat()
-        formats = [
-            "%a, %d %b %Y %H:%M:%S %z",
-            "%a, %d %b %Y %H:%M:%S %Z",
-            "%Y-%m-%dT%H:%M:%S%z",
-        ]
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(raw, fmt)
-                return dt.strftime("%Y-%m-%dT%H:%M:%S")
-            except ValueError:
-                continue
-        return raw
+            return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            from email.utils import parsedate_to_datetime
+            dt = parsedate_to_datetime(raw)
+            return dt.strftime("%Y-%m-%dT%H:%M:%S")
+        except Exception:
+            return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")

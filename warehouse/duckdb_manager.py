@@ -2,7 +2,7 @@
 warehouse/duckdb_manager.py
 ---------------------------
 Data Warehouse local basé sur DuckDB.
-Implémente le schéma analytique Gold + vues pour le dashboard.
+Implémente le schéma analytique Gold + vues pour l'API.
 
 Usage :
     from warehouse.duckdb_manager import DuckDBManager

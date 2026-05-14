@@ -48,6 +48,9 @@ logs/
 *.swp
 *.swo
 
+# HuggingFace cache
+.hf_cache/
+
 # OS
 .DS_Store
 Thumbs.db

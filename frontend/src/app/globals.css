@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* ── Tailwind v4 theme : les classes Tailwind pointent vers les CSS vars ── */
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-surface: var(--bg-surface);
+  --color-surface-hover: var(--bg-surface-2);
+  --color-border: var(--bg-border);
+  --color-border-subtle: var(--bg-border);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--green);
+  --color-warning: var(--yellow);
+  --color-danger: var(--red);
+  --color-info: var(--accent);
+  --font-sans: "Inter", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* ── Mode SOMBRE — sobre, chaud, professionnel ── */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-primary: #0f0e0d;
+  --bg-surface: #1a1917;
+  --bg-surface-2: #211f1d;
+  --bg-border: #2e2c29;
+
+  --text-primary: #e8e6e1;
+  --text-muted: #8a8880;
+  --text-faint: #524f4c;
+
+  --accent: #e8a547;
+  --accent-hover: #d4922e;
+  --accent-subtle: #2a2218;
+
+  --green: #4ade80;
+  --red: #f87171;
+  --yellow: #fbbf24;
+
+  --terminal-bg: #080807;
+  --terminal-header: #141312;
+  --terminal-text: #e8e6e1;
+  --terminal-muted: #64748b;
+  --terminal-line: #334155;
+  --terminal-green: #4ade80;
+  --terminal-red: #f87171;
+  --terminal-amber: #fbbf24;
+}
+
+/* ── Mode CLAIR — propre, lisible, journalistique ── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-primary: #f5f4f0;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f0ede8;
+  --bg-border: #ddd9d3;
+
+  --text-primary: #1a1916;
+  --text-muted: #6b6860;
+  --text-faint: #a8a49e;
+
+  --accent: #c47f1a;
+  --accent-hover: #a86a10;
+  --accent-subtle: #fdf3e3;
+
+  --green: #16a34a;
+  --red: #dc2626;
+  --yellow: #d97706;
+
+  --terminal-bg: #1a1917;
+  --terminal-header: #24231f;
+  --terminal-text: #d4d0c8;
+  --terminal-muted: #78766f;
+  --terminal-line: #44413b;
+  --terminal-green: #4ade80;
+  --terminal-red: #f87171;
+  --terminal-amber: #fbbf24;
+}
+
+/* ── Base ── */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ── Transitions globales ── */
+*,
+*::before,
+*::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+/* ── Terminal (toujours sombre) ── */
+.terminal-frame {
+  background-color: var(--terminal-bg) !important;
+  border-color: var(--bg-border) !important;
+}
+.terminal-header {
+  background-color: var(--terminal-header) !important;
+  border-color: var(--bg-border) !important;
+}
+.terminal-content {
+  background-color: var(--terminal-bg) !important;
+  color: var(--terminal-text) !important;
+}
+
+/* ── Animations ── */
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ── Sidebar active → styles communs ── */
+.nav-active {
+  border-left: 2px solid var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}
+
+/* ── Badge accent subtil ── */
+.badge-accent {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Button danger ── */
+.btn-danger {
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: var(--red);
+  border: 1px solid color-mix(in srgb, var(--red) 20%, transparent);
+}
+
+/* ── Button success ── */
+.btn-success {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 20%, transparent);
+}
+
+/* ── Button warning ── */
+.btn-warning {
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  color: var(--yellow);
+  border: 1px solid color-mix(in srgb, var(--yellow) 20%, transparent);
+}
+
+/* ── Recharts tooltip override ── */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--bg-border) !important;
+  border-radius: 6px !important;
+}

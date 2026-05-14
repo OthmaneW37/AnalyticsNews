@@ -35,7 +35,7 @@ if AIRFLOW_AVAILABLE:
         'news_batch_ingestion',
         default_args=default_args,
         description='Scrape les articles, écrit dans MinIO (Bronze/Silver) et envoie à Kafka',
-        schedule_interval=timedelta(hours=2),
+        schedule_interval=timedelta(hours=1),
         start_date=datetime(2025, 4, 1),
         catchup=False,
         tags=['news', 'ingestion', 'bronze', 'silver'],

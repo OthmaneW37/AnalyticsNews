@@ -54,130 +54,326 @@ class PolymarketEnricher:
     """
     Différenciateur #3 : Enrichissement avec les marchés prédictifs Polymarket.
 
-    Pour chaque topic BERTopic détecté dans les articles, cherche un marché
-    Polymarket correspondant et récupère la probabilité de marché courante.
-
-    Cela transforme nos données éditoriales en données de "signal" :
-    → 68% de probabilité que X se produise d'après les marchés.
+    Stratégie : charge TOUS les événements actifs depuis l'API Gamma,
+    puis fait du matching local par mots-clés. Le search de l'API Gamma
+    étant peu fiable, le matching local donne de bien meilleurs résultats.
     """
 
-    BASE_URL = "https://gamma-api.polymarket.com/markets"
+    EVENTS_URL = "https://gamma-api.polymarket.com/events"
+    MARKETS_URL = "https://gamma-api.polymarket.com/markets"
 
-    def __init__(self, timeout: int = 8):
+    # Mapping de mots-clés FR/AR → EN pour maximiser les correspondances
+    KEYWORD_MAP = {
+        # Géopolitique
+        "maroc": "morocco", "المغرب": "morocco",
+        "gaza": "gaza", "غزة": "gaza", "palestine": "palestine", "فلسطين": "palestine",
+        "israel": "israel", "israël": "israel", "إسرائيل": "israel",
+        "usa": "us", "états-unis": "us", "etats-unis": "us", "أمريكا": "us",
+        "biden": "biden", "trump": "trump",
+        "uk": "uk", "britain": "britain", "london": "uk", "bbc": "uk",
+        "france": "france", "فرنسا": "france", "macron": "macron",
+        "ukraine": "ukraine", "أوكرانيا": "ukraine",
+        "russia": "russia", "russie": "russia", "روسيا": "russia",
+        "putin": "putin", "poutine": "putin",
+        "china": "china", "chine": "china", "chinese": "china", "الصين": "china",
+        "xi": "china", "jinping": "china", "beijing": "china",
+        "europe": "europe", "eu": "europe", "nato": "nato",
+        "iran": "iran", "إيران": "iran", "tehran": "iran",
+        "syria": "syria", "syrie": "syria", "سوريا": "syria",
+        "lebanon": "lebanon", "liban": "lebanon",
+        "india": "india", "inde": "india", "भारत": "india",
+        "africa": "africa", "afrique": "africa", "إفريقيا": "africa",
+        # Économie / Finance
+        "economy": "economy", "économie": "economy", "inflation": "inflation",
+        "fed": "fed", "federal": "fed", "reserve": "fed",
+        "crypto": "crypto", "bitcoin": "bitcoin", "ethereum": "ethereum",
+        "btc": "bitcoin", "eth": "ethereum",
+        "stock": "stock", "market": "market", "trade": "trade",
+        "tariff": "tariffs", "tarifs": "tariffs", "douane": "tariffs",
+        # Sport
+        "football": "football", "sport": "sports", "nba": "nba",
+        "nhl": "nhl", "world cup": "world cup", "fifa": "fifa",
+        # Politique
+        "election": "election", "élection": "election",
+        "elections": "election", "انتخابات": "election",
+        "vote": "election", "president": "president",
+        "senate": "senate", "congress": "congress",
+        # Thèmes généraux
+        "war": "war", "guerre": "war", "حرب": "war",
+        "conflict": "war", "military": "military",
+        "oil": "oil", "pétrole": "oil", "energy": "energy",
+        "nuclear": "nuclear", "nucléaire": "nuclear",
+        "ai": "ai", "intelligence": "ai", "artificial": "ai",
+        "openai": "openai", "chatgpt": "openai",
+        "tech": "technology", "technology": "technology",
+        "space": "space", "nasa": "space", "esa": "space",
+        "climate": "climate", "climat": "climate",
+    }
+
+    def __init__(self, timeout: int = 10):
         self.timeout = timeout
+        self._events_cache = None
+
+    def _fetch_all_events(self) -> list[dict]:
+        """Charge tous les événements Polymarket actifs (200 max)."""
+        if self._events_cache is not None:
+            return self._events_cache
+
+        try:
+            resp = requests.get(
+                self.EVENTS_URL,
+                params={"limit": 200, "active": "true", "closed": "false"},
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            events = resp.json()
+            if isinstance(events, list):
+                logger.info(f"[Polymarket] {len(events)} événements chargés depuis l'API.")
+                self._events_cache = events
+                return events
+        except Exception as e:
+            logger.warning(f"[Polymarket] Impossible de charger les événements : {e}")
+
+        return []
+
+    def _get_markets_for_event(self, event: dict) -> list[dict]:
+        """Récupère les marchés d'un événement spécifique."""
+        slug = event.get("slug", "")
+        ticker = event.get("ticker", "")
+        if not slug and not ticker:
+            return []
+
+        try:
+            params = {"limit": 10, "active": "true", "closed": "false"}
+            if slug:
+                params["slug"] = slug
+            elif ticker:
+                params["tag"] = ticker
+
+            resp = requests.get(self.MARKETS_URL, params=params, timeout=self.timeout)
+            if resp.ok:
+                markets = resp.json()
+                if isinstance(markets, list):
+                    return markets
+        except Exception as e:
+            logger.debug(f"[Polymarket] Erreur marchés pour '{slug}': {e}")
+
+        return []
+
+    def _score_event(self, event: dict, search_terms: set[str]) -> float:
+        """Score de pertinence d'un événement par rapport à des termes de recherche."""
+        title = event.get("title", "").lower()
+        if not title:
+            return 0.0
+
+        score = 0.0
+        for term in search_terms:
+            if term in title:
+                score += 1.0
+            # Bonus pour correspondance exacte de mot
+            if f" {term} " in f" {title} ":
+                score += 0.5
+        return score
+
+    def _best_market_for_event(self, event: dict) -> dict | None:
+        """Retourne le meilleur marché (plus gros volume) pour un événement."""
+        markets = self._get_markets_for_event(event)
+        if not markets:
+            # Pas de marchés dédiés, on retourne l'événement lui-même
+            return None
+
+        # Trie par volume décroissant
+        markets.sort(key=lambda m: float(m.get("volume", 0)), reverse=True)
+        return markets[0]
+
+    def _extract_outcome_price(self, market_or_event: dict) -> float:
+        """Extrait la probabilité depuis les outcomePrices."""
+        prices = market_or_event.get("outcomePrices", "[]")
+        if isinstance(prices, str):
+            try:
+                import ast
+                prices = ast.literal_eval(prices)
+            except Exception:
+                return 0.5
+        if isinstance(prices, list) and len(prices) > 0:
+            return float(prices[0])
+        return 0.5
 
     def fetch_market_signals(self, keywords: list[str]) -> dict:
         """
-        Pour chaque mot-clé (label de topic), cherche un marché Polymarket
-        actif correspondant et récupère la probabilité.
-
-        Paramètres
-        ----------
-        keywords : list[str]
-            Labels de topics BERTopic (ex: ['israel_gaza', 'maroc_economie']).
-
-        Retourne
-        --------
-        dict : {keyword: {market_question, probability, volume_usd, url}}
+        Pour chaque mot-clé (label de topic), trouve le meilleur événement
+        Polymarket correspondant via matching local (pas via l'API search).
         """
         signals = {}
+
+        # Charge tous les événements une seule fois
+        all_events = self._fetch_all_events()
+        if not all_events:
+            logger.warning("[Polymarket] Aucun événement disponible.")
+            return signals
+
+        # Stop words multilingues à filtrer des labels BERTopic
+        STOP_WORDS = {
+            'the', 'of', 'to', 'and', 'in', 'is', 'for', 'on', 'with', 'as', 'by',
+            'at', 'an', 'be', 'this', 'that', 'from', 'post', 'appeared', 'first',
+            'also', 'has', 'have', 'are', 'was', 'were', 'its', 'which', 'his', 'her',
+            'they', 'them', 'their', 'but', 'not', 'or', 'so', 'if', 'than', 'because',
+            'while', 'where', 'when', 'how', 'what', 'who', 'why', 'about', 'into',
+            'over', 'after', 'before', 'between', 'out', 'against', 'during', 'without',
+            'under', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'only', 'own',
+            'same', 'too', 'very', 'can', 'will', 'just', 'should', 'now', 'said',
+            'would', 'could', 'been', 'much', 'many', 'it', 'we', 'you', 'he', 'she',
+            'le', 'la', 'les', 'de', 'des', 'un', 'une', 'en', 'que', 'qui', 'pour',
+            'dans', 'par', 'sur', 'avec', 'plus', 'ou', 'au', 'aux', 'est', 'sont',
+            'cette', 'cet', 'ces', 'son', 'sa', 'ses', 'du', 'dont', 'où', 'quand',
+            'comment', 'pourquoi', 'depuis', 'pendant', 'après', 'avant', 'sous',
+            'vers', 'selon', 'comme', 'fait', 'pas', 'tout', 'tous', 'être', 'avoir',
+            'faire', 'dit', 'mis', 'cet', 'aux', 'says', 'new', 'get', 'one', 'two',
+            'في', 'من', 'على', 'الى', 'عن', 'هذا', 'هذه', 'ان', 'او', 'مع', 'كل', 'تم',
+            'قد', 'التي', 'الذي', 'بعد', 'بين', 'انه', 'أن', 'إن', 'كان', 'كانت',
+            'هو', 'هي', 'هناك', 'كما', 'إلى', 'حول', 'عند', 'لدى', 'عبر', 'نحو', 'منذ',
+        }
 
         for keyword in keywords:
             if not keyword or keyword == "hors-sujet" or keyword.startswith("-1"):
                 continue
 
-            # On nettoie le label BERTopic (ex: '0_gaza_israel_guerre' → 'gaza israel')
-            search_term = " ".join(keyword.replace("_", " ").split()[1:4])
-            if not search_term.strip():
+            # Extraction des termes du label BERTopic
+            parts = keyword.replace("_", " ").split()
+            raw_terms = parts[1:] if len(parts) > 1 and parts[0].lstrip("-").isdigit() else parts
+
+            if not raw_terms:
                 continue
 
-            try:
-                resp = requests.get(
-                    self.BASE_URL,
-                    params={
-                        "search": search_term,
-                        "limit": 1,
-                        "active": "true",
-                        "closed": "false",
-                    },
-                    timeout=self.timeout,
-                )
+            # Filtre les stop words et les termes trop courts
+            meaningful = [t for t in raw_terms if t.lower() not in STOP_WORDS and len(t) >= 2 and not t.isdigit()]
 
-                if resp.ok and resp.json():
-                    market = resp.json()[0]
-                    outcome_prices = market.get("outcomePrices", "[]")
+            # Si tout était des stop words, on garde les 2 premiers termes non-numériques
+            if not meaningful:
+                meaningful = [t for t in raw_terms if len(t) >= 2 and not t.isdigit()][:2]
+            if not meaningful:
+                continue
 
-                    # outcomePrices peut être une chaîne JSON ou une liste
-                    if isinstance(outcome_prices, str):
-                        import ast
-                        try:
-                            outcome_prices = ast.literal_eval(outcome_prices)
-                        except Exception:
-                            outcome_prices = [0.5]
+            # Traduction FR/AR → EN + construction du set de recherche
+            search_terms: set[str] = set()
+            for t in meaningful:
+                t_lower = t.lower().strip()
+                if t_lower in self.KEYWORD_MAP:
+                    search_terms.add(self.KEYWORD_MAP[t_lower])
+                elif not t_lower.isdigit():
+                    search_terms.add(t_lower)
 
-                    probability = float(outcome_prices[0]) if outcome_prices else 0.5
+            # Ajoute aussi les termes FR d'origine (au cas où l'event contient du français)
+            search_terms.update(t.lower() for t in meaningful if len(t) >= 2 and not t.isdigit())
 
-                    signals[keyword] = {
-                        "search_term": search_term,
-                        "market_question": market.get("question", ""),
-                        "probability": round(probability, 4),
-                        "probability_pct": f"{probability * 100:.1f}%",
-                        "volume_usd": market.get("volume", 0),
-                        "url": market.get("url", ""),
-                        "fetched_at": datetime.utcnow().isoformat(),
-                    }
-                    logger.info(
-                        f"[Polymarket] '{search_term}' → "
-                        f"{signals[keyword]['probability_pct']} ({signals[keyword]['market_question'][:60]})"
-                    )
-                else:
-                    logger.debug(f"[Polymarket] Aucun marché trouvé pour : '{search_term}'")
+            if not search_terms:
+                continue
 
-            except requests.exceptions.Timeout:
-                logger.warning(f"[Polymarket] Timeout pour '{search_term}'")
-            except Exception as exc:
-                logger.error(f"[Polymarket] Erreur pour '{search_term}' : {exc}")
+            # Scoring de tous les événements
+            best_event = None
+            best_score = 0.0
 
-        logger.info(f"[Polymarket] {len(signals)} signaux récupérés sur {len(keywords)} topics.")
+            for event in all_events:
+                score = self._score_event(event, search_terms)
+                if score > best_score:
+                    best_score = score
+                    best_event = event
+
+            if not best_event or best_score == 0:
+                logger.debug(f"[Polymarket] Aucun événement trouvé pour '{keyword}' (termes: {search_terms})")
+                continue
+
+            # Récupère le meilleur marché de l'événement
+            best_market = self._best_market_for_event(best_event)
+            market_data = best_market or best_event
+
+            question = best_event.get("title", market_data.get("question", ""))
+            probability = self._extract_outcome_price(market_data)
+            volume = float(market_data.get("volume", best_event.get("volume", 0)))
+
+            signals[keyword] = {
+                "search_term": ", ".join(sorted(search_terms)),
+                "market_question": question,
+                "probability": round(probability, 4),
+                "probability_pct": f"{probability * 100:.1f}%",
+                "volume_usd": volume,
+                "url": market_data.get("url", ""),
+                "fetched_at": datetime.utcnow().isoformat(),
+            }
+            logger.info(
+                f"[Polymarket] '{keyword}' (score={best_score:.1f}) → "
+                f"'{question[:70]}' ({signals[keyword]['probability_pct']})"
+            )
+
+        logger.info(f"[Polymarket] {len(signals)} signaux pertinents sur {len(keywords)} topics.")
         return signals
 
-    def enrich_dataframe(self, df: pd.DataFrame, topic_signals: dict) -> pd.DataFrame:
+    def enrich_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Ajoute les colonnes Polymarket au DataFrame Silver/Gold.
+        Ajoute les colonnes Polymarket au DataFrame.
 
-        Paramètres
-        ----------
-        df : pd.DataFrame
-            DataFrame avec au minimum une colonne 'topic_label'.
-        topic_signals : dict
-            Sortie de fetch_market_signals().
-
-        Retourne
-        --------
-        pd.DataFrame enrichi avec colonnes polymarket_*.
+        Stratégie : mapping article par article via le titre pour trouver
+        le meilleur marché Polymarket. Seuls les matchs avec un score >= 2
+        sont conservés pour éviter les faux positifs.
         """
-        if df.empty or "topic_label" not in df.columns:
+        if df.empty:
             return df
 
         df = df.copy()
-        df["polymarket_question"] = df["topic_label"].map(
-            lambda t: topic_signals.get(t, {}).get("market_question", "")
-        )
-        df["polymarket_prob"] = df["topic_label"].map(
-            lambda t: topic_signals.get(t, {}).get("probability", None)
-        )
-        df["polymarket_prob_pct"] = df["topic_label"].map(
-            lambda t: topic_signals.get(t, {}).get("probability_pct", "")
-        )
-        df["polymarket_volume_usd"] = df["topic_label"].map(
-            lambda t: topic_signals.get(t, {}).get("volume_usd", None)
-        )
-        df["polymarket_url"] = df["topic_label"].map(
-            lambda t: topic_signals.get(t, {}).get("url", "")
-        )
+        all_events = self._fetch_all_events()
 
-        enriched = df["polymarket_prob"].notna().sum()
-        logger.info(f"[Polymarket] {enriched}/{len(df)} articles enrichis avec des signaux marché.")
+        # Initialise les colonnes
+        for col, default in [
+            ("polymarket_question", ""), ("polymarket_prob", None),
+            ("polymarket_prob_pct", ""), ("polymarket_volume_usd", None),
+            ("polymarket_url", ""),
+        ]:
+            if col not in df.columns:
+                df[col] = default
+
+        if not all_events or "titre_clean" not in df.columns:
+            return df
+
+        matched = 0
+        for idx, row in df.iterrows():
+            titre = str(row.get("titre_clean", "")) if pd.notna(row.get("titre_clean")) else ""
+            if not titre:
+                continue
+
+            # Extraction et filtrage des mots du titre
+            title_words = set(w.lower().strip(",.!?:;\"'()[]") for w in titre.split()
+                             if len(w) >= 3 and not w.isdigit())
+            # Traduction FR/AR → EN
+            search_terms = set()
+            for w in title_words:
+                search_terms.add(self.KEYWORD_MAP.get(w, w))
+
+            if not search_terms:
+                continue
+
+            # Scoring de tous les événements
+            best_ev = None
+            best_score = 0
+            for ev in all_events:
+                sc = self._score_event(ev, search_terms)
+                if sc > best_score:
+                    best_score = sc
+                    best_ev = ev
+
+            # Seuil minimum de 2.0 pour éviter les faux positifs
+            if not best_ev or best_score < 2.0:
+                continue
+
+            market = self._best_market_for_event(best_ev)
+            md = market or best_ev
+            df.at[idx, "polymarket_question"] = best_ev.get("title", md.get("question", ""))
+            df.at[idx, "polymarket_prob"] = self._extract_outcome_price(md)
+            df.at[idx, "polymarket_prob_pct"] = f"{self._extract_outcome_price(md) * 100:.1f}%"
+            df.at[idx, "polymarket_volume_usd"] = float(md.get("volume", best_ev.get("volume", 0)))
+            df.at[idx, "polymarket_url"] = md.get("url", "")
+            matched += 1
+
+        logger.info(f"[Polymarket] {matched}/{len(df)} articles enrichis avec des signaux marché.")
         return df
 
 
@@ -256,11 +452,9 @@ class GoldAggregator:
             df = df[df["quality_status"] == "OK"].copy()
             logger.info(f"[Gold] Filtre qualité : {len(df)}/{before} articles retenus.")
 
-        # 2. Enrichissement Polymarket
-        if enrich_polymarket and "topic_label" in df.columns:
-            topic_labels = df["topic_label"].dropna().unique().tolist()
-            signals = self.polymarket.fetch_market_signals(topic_labels)
-            df = self.polymarket.enrich_dataframe(df, signals)
+        # 2. Enrichissement Polymarket (matching article par article)
+        if enrich_polymarket:
+            df = self.polymarket.enrich_dataframe(df)
 
         # 3. Score de couverture (nb d'articles par topic normalisé)
         if "topic_label" in df.columns:
@@ -281,7 +475,7 @@ class GoldAggregator:
 
     def get_topic_summary(self, gold_df: pd.DataFrame) -> list[dict]:
         """
-        Génère un résumé JSON des topics (utile pour le dashboard et le warehouse).
+        Génère un résumé JSON des topics (utile pour l'API et le warehouse).
 
         Retourne une liste de dicts, un par topic, avec :
         - label, article_count, top_sources, avg_polymarket_prob

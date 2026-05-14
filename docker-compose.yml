@@ -8,8 +8,8 @@ services:
     image: minio/minio:latest
     container_name: news_minio
     ports:
-      - "9000:9000"  # API Port
-      - "9001:9001"  # Console Port
+      - "9000:9000"
+      - "9001:9001"
     environment:
       MINIO_ROOT_USER: "admin"
       MINIO_ROOT_PASSWORD: "password"
@@ -18,15 +18,21 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - news_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio-setup:
     image: minio/mc:latest
     container_name: news_minio_setup
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
+      sleep 3;
       mc alias set localminio http://minio:9000 admin password;
       mc mb localminio/bronze || true;
       mc mb localminio/silver || true;
@@ -59,9 +65,14 @@ services:
       - kafka_data:/bitnami/kafka
     networks:
       - news_network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ==========================================
-  # ORCHESTRATION : Airflow (Lightweight)
+  # ORCHESTRATION : Airflow
   # ==========================================
   postgres:
     image: postgres:15-alpine
@@ -74,33 +85,61 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - news_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  airflow-webserver:
+  airflow-init:
     image: apache/airflow:2.9.1-python3.11
-    container_name: news_airflow_web
+    container_name: news_airflow_init
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - _AIRFLOW_DB_UPGRADE=True
-      - _AIRFLOW_WWW_USER_CREATE=True
-      - _AIRFLOW_WWW_USER_USERNAME=admin
-      - _AIRFLOW_WWW_USER_PASSWORD=admin
     volumes:
       - ./orchestration/dags:/opt/airflow/dags
       - ./scrapers:/opt/airflow/scrapers
       - ./datalake:/opt/airflow/datalake
       - ./ingestion:/opt/airflow/ingestion
+      - ./warehouse:/opt/airflow/warehouse
+      - ./run_full_pipeline.py:/opt/airflow/run_full_pipeline.py
+      - ./requirements.txt:/requirements.txt
+    command: >
+      bash -c "
+      pip install -r /requirements.txt &&
+      airflow db upgrade &&
+      airflow users create --role Admin --username admin --password admin --email admin@example.com --firstname admin --lastname admin || true
+      "
+    networks:
+      - news_network
+
+  airflow-webserver:
+    image: apache/airflow:2.9.1-python3.11
+    container_name: news_airflow_web
+    depends_on:
+      - airflow-init
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    volumes:
+      - ./orchestration/dags:/opt/airflow/dags
+      - ./scrapers:/opt/airflow/scrapers
+      - ./datalake:/opt/airflow/datalake
+      - ./ingestion:/opt/airflow/ingestion
+      - ./warehouse:/opt/airflow/warehouse
+      - ./run_full_pipeline.py:/opt/airflow/run_full_pipeline.py
       - ./requirements.txt:/requirements.txt
     ports:
       - "8080:8080"
     command: >
       bash -c "
       pip install -r /requirements.txt &&
-      airflow db upgrade &&
-      airflow users create --role Admin --username admin --password admin --email admin@example.com --firstname admin --lastname admin &&
       airflow webserver
       "
     networks:
@@ -110,7 +149,7 @@ services:
     image: apache/airflow:2.9.1-python3.11
     container_name: news_airflow_scheduler
     depends_on:
-      - postgres
+      - airflow-init
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
@@ -120,6 +159,8 @@ services:
       - ./scrapers:/opt/airflow/scrapers
       - ./datalake:/opt/airflow/datalake
       - ./ingestion:/opt/airflow/ingestion
+      - ./warehouse:/opt/airflow/warehouse
+      - ./run_full_pipeline.py:/opt/airflow/run_full_pipeline.py
       - ./requirements.txt:/requirements.txt
     command: >
       bash -c "
@@ -130,27 +171,33 @@ services:
       - news_network
 
   # ==========================================
-  # DASHBOARD : Streamlit
+  # API : FastAPI + Dashboard
   # ==========================================
   dashboard:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: news_dashboard
     ports:
-      - "8501:8501"
+      - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
-      - WAREHOUSE_PATH=/data/warehouse/news_warehouse.duckdb
+      - WAREHOUSE_PATH=/app/data/warehouse/news_warehouse.duckdb
+      - MINIO_ENDPOINT=minio:9000
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     volumes:
-      - ./:/app
-      - ./data:/data
-    working_dir: /app
-    command: >
-      bash -c "
-      pip install -r requirements.txt &&
-      streamlit run dashboard/app.py --server.port=8501 --server.address=0.0.0.0 --server.headless=true
-      "
+      - ./data:/app/data
+      - ./.hf_cache:/app/.hf_cache
+    depends_on:
+      - minio
+      - kafka
     networks:
       - news_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/pipeline-status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   minio_data:

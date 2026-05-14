@@ -115,7 +115,7 @@ class GDELTClient(BaseScraper):
     def _parse_gdelt_date(raw: str) -> str:
         """Convertit '20250426T100000Z' → '2025-04-26T10:00:00'."""
         if not raw:
-            return datetime.utcnow().isoformat()
+            return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         try:
             dt = datetime.strptime(raw, "%Y%m%dT%H%M%SZ")
             return dt.strftime("%Y-%m-%dT%H:%M:%S")

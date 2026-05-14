@@ -13,7 +13,6 @@ pyarrow>=18.0.0
 # Phase 2 — Infrastructure distribuée (Docker)
 kafka-python==2.0.2
 minio==7.2.7
-# apache-airflow==2.9.1   # Installé dans le conteneur Docker uniquement
 
 # Phase 2bis — Qualité & Enrichissement
 langdetect==1.0.9
@@ -22,11 +21,8 @@ duckdb==0.10.2
 # Phase 3 — Différenciateurs (BERTopic + Polymarket)
 bertopic>=0.16.4
 sentence-transformers==2.7.0
-# torch doit être installé séparément selon la plateforme :
-# CPU only  : pip install torch --index-url https://download.pytorch.org/whl/cpu
-# GPU (CUDA): pip install torch --index-url https://download.pytorch.org/whl/cu121
+torch --index-url https://download.pytorch.org/whl/cpu
 
-# Phase 4 — Dashboard
-streamlit>=1.39.0
-plotly==5.22.0
-altair==5.3.0
+# Phase 4 — API (FastAPI)
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0

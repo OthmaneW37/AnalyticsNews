@@ -1,7 +1,7 @@
 # News Pipeline — Architecture de données
 
 Pipeline de collecte et traitement d'articles de presse multilingue
-avec architecture Bronze / Silver / Gold, Data Warehouse DuckDB et Dashboard Streamlit.
+avec architecture Bronze / Silver / Gold et Data Warehouse DuckDB.
 
 ---
 
@@ -35,8 +35,12 @@ news-pipeline/
 │   ├── models.sql            ← Schéma SQL analytique
 │   └── duckdb_manager.py     ← Data Warehouse local (DuckDB)
 │
-├── dashboard/
-│   └── app.py                ← Streamlit (Phase 4)
+├── api_server.py             ← API FastAPI (exposition données + pipeline + frontend)
+│
+├── frontend/                 ← Dashboard Next.js 16 + TypeScript + Tailwind
+│   ├── src/app/              ← Pages (Dashboard, Pipeline, Articles, Sujets, Qualité)
+│   ├── src/lib/api.ts        ← Client API typé (TanStack Query)
+│   └── dist/                 ← Build statique servi par FastAPI
 │
 ├── orchestration/dags/
 │   ├── batch_dag.py          ← DAG Airflow ingestion
@@ -123,13 +127,14 @@ Services démarrés :
 3. `news_kafka` — Broker Kafka (9092)
 4. `news_postgres` — PostgreSQL pour Airflow
 5. `news_airflow_web` / `news_airflow_scheduler` — Airflow (8080)
-6. `news_dashboard` — Streamlit (8501)
+6. `news_dashboard` — API FastAPI (8000)
 
 ### Interfaces Web
 
+- **Dashboard Next.js** : http://localhost:8000
 - **MinIO Console** : http://localhost:9001 (admin / password)
 - **Airflow Web UI** : http://localhost:8080 (admin / admin)
-- **Dashboard Streamlit** : http://localhost:8501
+- **API FastAPI Docs** : http://localhost:8000/docs
 
 ---
 
@@ -141,7 +146,7 @@ Services démarrés :
 | **Silver** | Parquet + JSON | Données nettoyées, détection langue, qualité |
 | **Gold** | Parquet + JSON | Agrégats BERTopic + signaux Polymarket + tables analytiques |
 | **Warehouse** | DuckDB | Tables analytiques SQL + vues |
-| **Dashboard** | Streamlit | Visualisation interactive |
+
 
 ---
 
@@ -180,22 +185,49 @@ Le Data Warehouse est un fichier DuckDB local : `data/warehouse/news_warehouse.d
 
 ---
 
-## Dashboard Streamlit
+
+
+## Dashboard Next.js
+
+Le frontend est une application **Next.js 16** avec App Router, servie directement par l'API FastAPI.
+
+### Stack
+
+- Next.js 16 + React 19 + TypeScript strict
+- Tailwind CSS v4 (dark mode uniquement)
+- TanStack Query (polling auto 30s dashboard, 2s logs)
+- Recharts (graphiques)
+- Framer Motion (animations)
+- Lucide React (icônes)
+
+### Pages
+
+| Page | URL | Description |
+|------|-----|-------------|
+| **Dashboard** | `/` | KPIs, graphiques, live feed, top sujets |
+| **Pipeline** | `/pipeline` | Lancer le pipeline, terminal de logs temps réel |
+| **Articles** | `/articles` | Table filtrable, drawer de détail |
+| **Sujets** | `/topics` | Bubble chart BERTopic + signaux Polymarket |
+| **Qualité** | `/quality` | Funnel, taux OK/FAIL par source |
+
+### Build du frontend
 
 ```bash
-streamlit run dashboard/app.py
+cd frontend
+npm install
+npm run build
 ```
 
-Visualisations disponibles :
-- **KPIs** : Articles, sources, langues, topics, qualité
-- **Couverture par topic** (BERTopic)
-- **Signaux Polymarket** (gauge)
-- **Répartition par langue / pays / source**
-- **Timeline de publication**
-- **Nombre d'articles par source**
-- **Mots clés les plus fréquents**
-- **Rapport qualité**
-- **Table interactive** des articles récents
+Le build statique est généré dans `frontend/dist` et servi automatiquement par `api_server.py` sur `http://localhost:8000`.
+
+### Développement
+
+```bash
+cd frontend
+npm run dev
+```
+
+Le frontend en dev se connecte à l'API sur `http://localhost:8000`.
 
 ---
 
@@ -222,7 +254,7 @@ Visualisations disponibles :
 - [x] Code source versionné sur Git
 - [x] Fichiers de déploiement (docker-compose.yml)
 - [x] Documentation technique (README, ARCHITECTURE.md, GOVERNANCE.md)
-- [x] Dashboards de visualisation (Streamlit)
+- [x] Dashboard Next.js professionnel (frontend/)
 - [x] Démonstration fonctionnelle du pipeline (test_phase1.py, run_full_pipeline.py)
 
 ---
@@ -234,4 +266,4 @@ Visualisations disponibles :
 | **Phase 1** | Scrapers + Bronze + Silver (Local) | ✅ DONE |
 | **Phase 2** | MinIO + Kafka + Airflow (Docker) | ✅ DONE |
 | **Phase 3** | BERTopic + Polymarket + Gold | ✅ DONE |
-| **Phase 4** | Dashboard Streamlit + Data Warehouse DuckDB | ✅ DONE |
+| **Phase 4** | Dashboard Next.js + Data Warehouse DuckDB | ✅ DONE |

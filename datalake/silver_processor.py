@@ -131,8 +131,11 @@ class SilverProcessor:
         # ------------------------------------------------------------------
         # 3. Normalisation des champs
         # ------------------------------------------------------------------
-        df["date_publication"] = pd.to_datetime(
-            df["date_publication"], errors="coerce"
+        # Utilise apply pour gérer les formats mixtes (avec/sans microsecondes)
+        # car pd.to_datetime vectorisé échoue sur les formats hétérogènes
+        df["date_publication"] = df["date_publication"].apply(
+            lambda x: pd.to_datetime(x, errors="coerce")
+            if pd.notna(x) and str(x).strip() else pd.NaT
         )
         df["source"] = df["source"].str.lower().str.strip()
         df["langue"] = df["langue"].str.lower().str.strip()
@@ -264,6 +267,13 @@ class SilverProcessor:
         url = row.get("url", "")
         if url and not self._is_url_valid(str(url)):
             flags.append("URL_INVALIDE")
+
+        # --- LANGUE NON SUPPORTÉE (arabe) ---
+        import re
+        titre_raw = str(row.get("titre_clean", ""))
+        contenu_raw = str(row.get("contenu_clean", ""))
+        if re.search(r'[\u0600-\u06FF]', titre_raw) or re.search(r'[\u0600-\u06FF]', contenu_raw):
+            flags.append("LANGUE_ARABE_NON_SUPPORTEE")
 
         # --- COHÉRENCE (warning, non bloquant) ---
         declared_lang = str(row.get("langue", "")).lower()
@@ -466,8 +476,23 @@ class SilverProcessor:
 
         logger.info(f"[BERTopic] Entraînement sur {len(valid_docs)} documents...")
 
+        # Configuration d'un CountVectorizer strict pour éliminer de façon absolue tous les stop words
+        # et prépositions lors du calcul des représentations de topics par BERTopic
+        try:
+            from sklearn.feature_extraction.text import CountVectorizer
+            stop_words_ext = [
+                "the", "of", "to", "and", "in", "is", "for", "on", "with", "as", "by", "at", "an", "be", "this", "that", "from", "post", "appeared", "first", "also", "has", "have", "are", "was", "were", "its", "which", "his", "her", "they", "them", "their", "but", "not", "or", "so", "if", "than", "because", "while", "where", "when", "how", "what", "who", "why", "about", "into", "over", "after", "before", "between", "out", "against", "during", "without", "under", "more", "most", "other", "some", "such", "no", "nor", "only", "own", "same", "too", "very", "can", "will", "just", "should", "now", "said", "would", "could", "been", "much", "many",
+                "le", "la", "les", "de", "des", "un", "une", "en", "que", "qui", "pour", "dans", "par", "sur", "avec", "plus", "ou", "au", "aux", "est", "sont", "cette", "cet", "ces", "son", "sa", "ses", "du", "qui", "que", "quoi", "dont", "où", "quand", "comment", "pourquoi", "depuis", "pendant", "après", "avant", "sous", "vers", "selon", "comme",
+                "في", "من", "على", "الى", "عن", "هذا", "هذه", "ان", "او", "مع", "كل", "تم", "قد", "التي", "الذي", "بعد", "بين", "انه", "أن", "إن", "كان", "كانت", "هو", "هي", "هناك", "كما", "إلى", "حول", "عند", "لدى", "عبر", "نحو", "منذ", "الذين", "تلك", "ذلك"
+            ]
+            vectorizer_model = CountVectorizer(stop_words=stop_words_ext, min_df=1)
+        except Exception as e:
+            logger.warning(f"[BERTopic] Erreur initialisation CountVectorizer : {e}")
+            vectorizer_model = None
+
         topic_model = BERTopic(
             language="multilingual",   # gère FR, AR, EN simultanément
+            vectorizer_model=vectorizer_model,
             nr_topics="auto",          # détecte automatiquement le bon nombre
             min_topic_size=max(3, len(valid_docs) // 20),  # au moins 5% du corpus
             verbose=False,
@@ -475,9 +500,47 @@ class SilverProcessor:
 
         topics, probs = topic_model.fit_transform(valid_docs)
 
-        # Nom du topic (ex: '0_gaza_israel_guerre_ceasefire')
+        # Nom du topic expurgé des stop words multilingues pour une qualité premium
         topic_info = topic_model.get_topic_info()
-        topic_name_map = dict(zip(topic_info["Topic"], topic_info["Name"]))
+        
+        stop_words = {
+            "the", "of", "to", "and", "in", "is", "for", "on", "with", "as", "by", "at", "an", "be", "this", "that", "from", "post", "appeared", "first", "also", "has", "have", "are", "was", "were", "its", "which", "his", "her", "they", "them", "their", "but", "not", "or", "so", "if", "than", "because", "while", "where", "when", "how", "what", "who", "why", "about", "into", "over", "after", "before", "between", "out", "against", "during", "without", "under", "more", "most", "other", "some", "such", "no", "nor", "only", "own", "same", "too", "very", "can", "will", "just", "should", "now", "said", "would", "could", "been", "much", "many",
+            "le", "la", "les", "de", "des", "un", "une", "en", "que", "qui", "pour", "dans", "par", "sur", "avec", "plus", "ou", "au", "aux", "est", "sont", "cette", "cet", "ces", "son", "sa", "ses", "du", "qui", "que", "quoi", "dont", "où", "quand", "comment", "pourquoi", "depuis", "pendant", "après", "avant", "sous", "vers", "selon", "comme",
+            "في", "من", "على", "الى", "عن", "هذا", "هذه", "ان", "او", "مع", "كل", "تم", "قد", "التي", "الذي", "بعد", "بين", "انه", "أن", "إن", "كان", "كانت", "هو", "هي", "هناك", "كما", "إلى", "حول", "عند", "لدى", "عبر", "نحو", "منذ", "الذين", "تلك", "ذلك"
+        }
+        
+        topic_name_map = {}
+        for _, r_info in topic_info.iterrows():
+            t_id = r_info["Topic"]
+            if t_id == -1:
+                topic_name_map[t_id] = "hors-sujet"
+                continue
+                
+            # Extraction propre à partir des représentations internes (les 10 meilleurs mots)
+            # ou du nom brut si Representation n'est pas disponible
+            candidates = []
+            if "Representation" in r_info and isinstance(r_info["Representation"], (list, tuple)):
+                candidates = r_info["Representation"]
+            else:
+                raw_name = str(r_info["Name"])
+                parts = raw_name.split("_")
+                candidates = parts[1:] if len(parts) > 1 and parts[0].lstrip("-").isdigit() else parts
+            
+            cleaned = []
+            for w in candidates:
+                w_lower = str(w).lower().strip()
+                if w_lower not in stop_words and not w_lower.isdigit():
+                    if len(w_lower) > 1 or any(ord(c) > 127 for c in w_lower):
+                        cleaned.append(str(w))
+                        if len(cleaned) >= 3:  # On garde les 3 meilleurs termes significatifs
+                            break
+            
+            if not cleaned:
+                cleaned = [str(w) for w in candidates if len(str(w)) > 2][:2]
+                if not cleaned:
+                    cleaned = ["sujet", str(t_id)]
+            
+            topic_name_map[t_id] = f"{t_id}_" + "_".join(cleaned)
 
         # Remplissage du DataFrame : docs invalides → topic -1
         all_topics = []

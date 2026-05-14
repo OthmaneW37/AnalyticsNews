@@ -83,8 +83,8 @@ news_events                      process()
             data/warehouse/news_warehouse.duckdb
                     │
                     ▼
-            [Dashboard Streamlit]
-            Lecture vues SQL + DataFrame
+            [Dashboard React]
+            Consommation API FastAPI (/api/data)
 ```
 
 ## 3. Contrôle qualité par dimension
@@ -148,4 +148,4 @@ Ces métadonnées sont stockées dans la table `ingestion_stats` du Data Warehou
 | 1.0 | 2025-04-26 | Phase 1 — Scrapers + Bronze + Silver |
 | 2.0 | 2025-04-26 | Phase 2 — MinIO + Kafka + Airflow |
 | 3.0 | 2025-04-26 | Phase 3 — BERTopic + Polymarket + Gold |
-| 4.0 | 2025-04-26 | Phase 4 — Dashboard Streamlit + Data Warehouse DuckDB + Nouvelles sources |
+| 4.0 | 2025-04-26 | Phase 4 — Dashboard React + Data Warehouse DuckDB + Nouvelles sources |

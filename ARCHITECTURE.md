@@ -48,9 +48,8 @@ Le projet est une plateforme Big Data de collecte, stockage, transformation et v
                     │
                     ▼
             ┌──────────────┐
-            │  Dashboard   │
-            │  Streamlit   │
-            │ (visualisation)
+            │  API FastAPI │
+            │  ( données ) │
             └──────────────┘
 ```
 
@@ -112,7 +111,7 @@ Le projet est une plateforme Big Data de collecte, stockage, transformation et v
 | Enrichissement | Polymarket API | Signaux marché |
 | Data Warehouse | DuckDB | Analytics SQL |
 | Orchestration | Apache Airflow | DAGs batch + qualité |
-| Dashboard | Streamlit + Plotly | Visualisation interactive |
+
 | Conteneurisation | Docker + docker-compose | Déploiement portable |
 
 ## Flux de données détaillé
@@ -123,7 +122,7 @@ Le projet est une plateforme Big Data de collecte, stockage, transformation et v
 4. **Silver** : Le processor nettoie, détecte la langue, contrôle la qualité et sauvegarde en Parquet.
 5. **Gold** : L'aggregator applique BERTopic et Polymarket, puis génère les tables analytiques.
 6. **Warehouse** : Les données Gold et les stats d'ingestion sont insérées dans DuckDB.
-7. **Dashboard** : Streamlit lit les données Silver/Gold et les vues DuckDB pour les visualiser.
+7. **API** : L'API FastAPI (`/api/data`) expose les données Silver/Gold et les KPIs.
 
 ## Qualité des données
 
@@ -140,5 +139,5 @@ Flags possibles : `TITRE_VIDE_OU_TROP_COURT`, `CONTENU_TROP_COURT`, `URL_MANQUAN
 ## Scalabilité & Portabilité
 
 - **Local** : Tout fonctionne sans Docker (DuckDB en local, fichiers JSON/Parquet).
-- **Docker** : `docker-compose up -d` démarre MinIO, Kafka, Airflow, PostgreSQL, Streamlit.
+- **Docker** : `docker-compose up -d` démarre MinIO, Kafka, Airflow, PostgreSQL, Dashboard React (via FastAPI).
 - **Kubernetes** : Les services sont isolés et stateless (volumes pour la persistance).

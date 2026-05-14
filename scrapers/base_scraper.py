@@ -38,7 +38,7 @@ class Article:
         self.url = url
         self.source = source
         self.langue = langue
-        self.date_publication = date_publication or datetime.utcnow().isoformat()
+        self.date_publication = date_publication or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         self.contenu = contenu or ""
         self.pays = pays or "unknown"
         self.raw_source = raw_source or source
